@@ -4,11 +4,13 @@ import { createConnection, getDefaultDbPath } from "./db/connection.js";
 import { runMigrations } from "./db/migrate.js";
 import { seedPricing } from "./db/pricing.js";
 import { scanForNewSessions } from "./sync/scanner.js";
+import { classifyAllSessions } from "./classifier/categorize-session.js";
 import { registerUsageSummary } from "./tools/usage-summary.js";
 import { registerProjectUsage } from "./tools/project-usage.js";
 import { registerModelStats } from "./tools/model-stats.js";
 import { registerAgentUsage } from "./tools/agent-usage.js";
 import { registerSkillUsage } from "./tools/skill-usage.js";
+import { registerCostOptimize } from "./tools/cost-optimize.js";
 
 const SCAN_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -20,6 +22,9 @@ async function main() {
   const db = createConnection(dbPath);
   runMigrations(db);
   seedPricing(db);
+
+  // Retroactively classify existing sessions
+  classifyAllSessions(db);
 
   // Initial scan
   await scanForNewSessions(db, claudeDir);
@@ -47,6 +52,9 @@ async function main() {
   // Register Phase B tools
   registerAgentUsage(server, db);
   registerSkillUsage(server, db);
+
+  // Register Phase C tools
+  registerCostOptimize(server, db);
 
   // Connect via stdio
   const transport = new StdioServerTransport();
