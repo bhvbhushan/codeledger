@@ -2,30 +2,13 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type Database from "better-sqlite3";
 import { z } from "zod";
 import { lookupPricing } from "../db/pricing.js";
+import { periodToStart } from "../utils/period.js";
 
 interface Recommendation {
   what: string;
   evidence: string;
   recommendation: string;
   potential_savings: number;
-}
-
-function periodToStart(period: string): string {
-  const now = new Date();
-  switch (period) {
-    case "week": {
-      const d = new Date(now);
-      d.setDate(d.getDate() - 7);
-      return d.toISOString();
-    }
-    case "month": {
-      const d = new Date(now);
-      d.setMonth(d.getMonth() - 1);
-      return d.toISOString();
-    }
-    default:
-      return "1970-01-01T00:00:00Z";
-  }
 }
 
 export function generateRecommendations(
