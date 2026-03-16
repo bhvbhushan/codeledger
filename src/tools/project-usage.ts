@@ -1,6 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type Database from "better-sqlite3";
 import { z } from "zod";
+import { periodToStart } from "../utils/period.js";
 
 export function queryProjectUsage(
   db: Database.Database,
@@ -8,27 +9,7 @@ export function queryProjectUsage(
   sortBy: string,
   limit: number
 ): any[] {
-  const now = new Date();
-  let start: string;
-  switch (period) {
-    case "today":
-      start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-      break;
-    case "week": {
-      const d = new Date(now);
-      d.setDate(d.getDate() - 7);
-      start = d.toISOString();
-      break;
-    }
-    case "month": {
-      const d = new Date(now);
-      d.setMonth(d.getMonth() - 1);
-      start = d.toISOString();
-      break;
-    }
-    default:
-      start = "1970-01-01T00:00:00Z";
-  }
+  const start = periodToStart(period);
 
   const orderCol =
     sortBy === "tokens"

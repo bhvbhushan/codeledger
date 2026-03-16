@@ -1,5 +1,5 @@
 import type Database from "better-sqlite3";
-import { readdirSync, statSync, readFileSync, existsSync } from "fs";
+import { readdirSync, statSync, existsSync } from "fs";
 import { join, basename } from "path";
 import { parseSessionFile } from "../parser/session-parser.js";
 import { parseAgentFile, readAgentMeta } from "../parser/agent-parser.js";

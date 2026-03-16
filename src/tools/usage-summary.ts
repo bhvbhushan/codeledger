@@ -1,34 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type Database from "better-sqlite3";
 import { z } from "zod";
-
-function periodToDateRange(period: string): { start: string; end: string } {
-  const now = new Date();
-  const end = now.toISOString();
-  let start: string;
-
-  switch (period) {
-    case "today":
-      // Use local midnight (not UTC midnight) so "today" matches the user's timezone
-      start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-      break;
-    case "week": {
-      const d = new Date(now);
-      d.setDate(d.getDate() - 7);
-      start = d.toISOString();
-      break;
-    }
-    case "month": {
-      const d = new Date(now);
-      d.setMonth(d.getMonth() - 1);
-      start = d.toISOString();
-      break;
-    }
-    default:
-      start = "1970-01-01T00:00:00Z";
-  }
-  return { start, end };
-}
+import { periodToStart } from "../utils/period.js";
 
 interface UsageSummary {
   totalCostUsd: number;
@@ -45,7 +18,7 @@ export function queryUsageSummary(
   period: string,
   project?: string
 ): UsageSummary {
-  const { start } = periodToDateRange(period);
+  const start = periodToStart(period);
 
   let sessionFilter = "WHERE s.started_at >= ?";
   const params: (string | number)[] = [start];
@@ -99,6 +72,13 @@ export function queryUsageSummary(
     )
     .all(...params) as { model: string | null; cost: number }[];
 
+  let agentFilter = "WHERE a.started_at >= ?";
+  const agentParams: (string | number)[] = [start];
+  if (project) {
+    agentFilter += " AND p.display_name = ?";
+    agentParams.push(project);
+  }
+
   const overheadRow = db
     .prepare(
       `
@@ -106,11 +86,11 @@ export function queryUsageSummary(
     FROM agents a
     JOIN sessions s ON a.session_id = s.id
     LEFT JOIN projects p ON s.project_id = p.id
-    ${sessionFilter.replace("s.started_at", "a.started_at")}
+    ${agentFilter}
     AND a.source_category = 'overhead'
   `
     )
-    .get(...params) as { overhead_cost: number } | undefined;
+    .get(...agentParams) as { overhead_cost: number } | undefined;
 
   const totalCost = totals?.cost ?? 0;
   const modelDistribution = models.map((m) => ({

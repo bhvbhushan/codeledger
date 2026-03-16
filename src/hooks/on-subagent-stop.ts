@@ -1,8 +1,5 @@
-import { createConnection, getDefaultDbPath } from "../db/connection.js";
-import { runMigrations } from "../db/migrate.js";
-import { seedPricing } from "../db/pricing.js";
+import { initHookDb } from "./init-db.js";
 import { parseAgentFile, readAgentMeta } from "../parser/agent-parser.js";
-import { dirname, basename } from "path";
 
 interface SubagentStopPayload {
   session_id: string;
@@ -21,12 +18,9 @@ export async function handleSubagentStop(
   payload: SubagentStopPayload,
   dbPath?: string
 ): Promise<void> {
-  const db = createConnection(dbPath ?? getDefaultDbPath());
+  const db = initHookDb(dbPath);
 
   try {
-    runMigrations(db);
-    seedPricing(db);
-
     // Determine agent_type: prefer payload, fall back to meta.json
     let agentType = payload.agent_type ?? null;
     if (!agentType && payload.agent_transcript_path) {

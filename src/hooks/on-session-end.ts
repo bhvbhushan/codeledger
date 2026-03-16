@@ -1,6 +1,4 @@
-import { createConnection, getDefaultDbPath } from "../db/connection.js";
-import { runMigrations } from "../db/migrate.js";
-import { seedPricing } from "../db/pricing.js";
+import { initHookDb } from "./init-db.js";
 import { parseSessionFile } from "../parser/session-parser.js";
 import { dirname, basename } from "path";
 
@@ -17,12 +15,9 @@ export async function handleSessionEnd(
   payload: SessionEndPayload,
   dbPath?: string
 ): Promise<void> {
-  const db = createConnection(dbPath ?? getDefaultDbPath());
+  const db = initHookDb(dbPath);
 
   try {
-    runMigrations(db);
-    seedPricing(db);
-
     // Derive project path from transcript_path directory
     // ~/.claude/projects/{project-path}/{session-uuid}.jsonl
     const dir = dirname(payload.transcript_path);

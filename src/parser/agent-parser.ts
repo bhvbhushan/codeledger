@@ -143,7 +143,7 @@ export async function parseAgentFile(
       startedAt,
       endedAt,
       messages.length,
-      classifyAgentSource(agentId)
+      result.sourceCategory
     );
   } catch (err: any) {
     // FK violation means parent session not in DB yet — scanner will backfill

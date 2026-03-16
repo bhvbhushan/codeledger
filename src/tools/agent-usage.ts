@@ -1,33 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type Database from "better-sqlite3";
 import { z } from "zod";
-
-function periodToDateRange(period: string): { start: string; end: string } {
-  const now = new Date();
-  const end = now.toISOString();
-  let start: string;
-
-  switch (period) {
-    case "today":
-      start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-      break;
-    case "week": {
-      const d = new Date(now);
-      d.setDate(d.getDate() - 7);
-      start = d.toISOString();
-      break;
-    }
-    case "month": {
-      const d = new Date(now);
-      d.setMonth(d.getMonth() - 1);
-      start = d.toISOString();
-      break;
-    }
-    default:
-      start = "1970-01-01T00:00:00Z";
-  }
-  return { start, end };
-}
+import { periodToStart } from "../utils/period.js";
 
 interface AgentUsageRow {
   agent_id: string;
@@ -52,7 +26,7 @@ export function queryAgentUsage(
   period: string,
   filters?: { sessionId?: string; project?: string; sourceCategory?: string }
 ): AgentUsageRow[] {
-  const { start } = periodToDateRange(period);
+  const start = periodToStart(period);
 
   let whereClause = "WHERE a.started_at >= ?";
   const params: (string | number)[] = [start];
@@ -150,13 +124,6 @@ export function registerAgentUsage(
         "|-------|------|-------|-----------------|------|----------|---------|---------|",
         ...agents.map((a) => {
           const tokens = `${Number(a.total_input_tokens).toLocaleString()}/${Number(a.total_output_tokens).toLocaleString()}`;
-          const duration =
-            a.started_at && a.ended_at
-              ? formatDuration(
-                  new Date(a.ended_at).getTime() -
-                    new Date(a.started_at).getTime()
-                )
-              : "\u2014";
           return `| ${a.agent_id} | ${a.agent_type ?? "\u2014"} | ${a.model ?? "\u2014"} | ${tokens} | $${a.total_cost_usd.toFixed(2)} | ${a.message_count} | ${a.session_id.slice(0, 8)}... | ${a.project} |`;
         }),
       ];
@@ -166,13 +133,4 @@ export function registerAgentUsage(
       };
     }
   );
-}
-
-function formatDuration(ms: number): string {
-  if (ms < 1000) return "<1s";
-  const seconds = Math.floor(ms / 1000);
-  if (seconds < 60) return `${seconds}s`;
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-  return `${minutes}m ${remainingSeconds}s`;
 }
