@@ -1,5 +1,6 @@
 import type { Hono } from "hono";
 import type Database from "better-sqlite3";
+import { generateRecommendations } from "../tools/cost-optimize.js";
 
 function periodToStart(period: string): string {
   const now = new Date();
@@ -353,5 +354,39 @@ export function registerApiRoutes(app: Hono, db: Database.Database): void {
 
     result.sort((a, b) => b.est_cost_usd - a.est_cost_usd);
     return c.json(result);
+  });
+
+  // Categories
+  app.get("/api/categories", (c) => {
+    const period = c.req.query("period") ?? "week";
+    const start = periodToStart(period);
+
+    const rows = db
+      .prepare(
+        `
+      SELECT
+        category,
+        COUNT(*) as session_count,
+        COALESCE(SUM(total_cost_usd), 0) as total_cost
+      FROM sessions
+      WHERE started_at >= ?
+      GROUP BY category
+      ORDER BY total_cost DESC
+    `,
+      )
+      .all(start) as Array<{
+      category: string;
+      session_count: number;
+      total_cost: number;
+    }>;
+
+    return c.json(rows);
+  });
+
+  // Optimize
+  app.get("/api/optimize", (c) => {
+    const period = c.req.query("period") ?? "month";
+    const recs = generateRecommendations(db, period);
+    return c.json(recs);
   });
 }
