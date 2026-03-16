@@ -7,6 +7,8 @@ import { scanForNewSessions } from "./sync/scanner.js";
 import { registerUsageSummary } from "./tools/usage-summary.js";
 import { registerProjectUsage } from "./tools/project-usage.js";
 import { registerModelStats } from "./tools/model-stats.js";
+import { registerAgentUsage } from "./tools/agent-usage.js";
+import { registerSkillUsage } from "./tools/skill-usage.js";
 
 const SCAN_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -34,13 +36,17 @@ async function main() {
   // Create MCP server
   const server = new McpServer({
     name: "codeledger",
-    version: "0.1.0",
+    version: "0.2.0",
   });
 
-  // Register tools
+  // Register Phase A tools
   registerUsageSummary(server, db);
   registerProjectUsage(server, db);
   registerModelStats(server, db);
+
+  // Register Phase B tools
+  registerAgentUsage(server, db);
+  registerSkillUsage(server, db);
 
   // Connect via stdio
   const transport = new StdioServerTransport();
