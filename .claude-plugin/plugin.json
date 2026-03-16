@@ -1,0 +1,10 @@
+{
+  "name": "codeledger",
+  "version": "0.1.0",
+  "description": "Token-level cost intelligence for Claude Code",
+  "author": {
+    "name": "Bhavya Bhushan"
+  },
+  "license": "MIT",
+  "keywords": ["analytics", "cost", "tokens", "governance", "usage"]
+}
