@@ -1,0 +1,10 @@
+{
+  "codeledger-server": {
+    "command": "node",
+    "args": ["${CLAUDE_PLUGIN_ROOT}/dist/index.js"],
+    "env": {
+      "CODELEDGER_DB_PATH": "${HOME}/.codeledger/codeledger.db",
+      "CLAUDE_DATA_DIR": "${HOME}/.claude"
+    }
+  }
+}
