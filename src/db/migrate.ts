@@ -2,6 +2,7 @@ import type Database from "better-sqlite3";
 import { PHASE_A_SCHEMA } from "./schema.js";
 import { PHASE_B_SCHEMA } from "./schema-v2.js";
 import { PHASE_B_CATEGORY_SCHEMA } from "./schema-v3.js";
+import { PHASE_C_CATEGORY_SCHEMA } from "./schema-v4.js";
 
 interface Migration {
   version: number;
@@ -12,6 +13,7 @@ const MIGRATIONS: Migration[] = [
   { version: 1, sql: PHASE_A_SCHEMA },
   { version: 2, sql: PHASE_B_SCHEMA },
   { version: 3, sql: PHASE_B_CATEGORY_SCHEMA },
+  { version: 4, sql: PHASE_C_CATEGORY_SCHEMA },
 ];
 
 export function runMigrations(db: Database.Database): void {

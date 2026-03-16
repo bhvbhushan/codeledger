@@ -1,5 +1,6 @@
 import type { Hono } from "hono";
 import type Database from "better-sqlite3";
+import { generateRecommendations } from "../tools/cost-optimize.js";
 
 function periodToStart(period: string): string {
   const now = new Date();
@@ -168,7 +169,7 @@ export function registerApiRoutes(app: Hono, db: Database.Database): void {
       }
     >;
 
-    // Get overhead per project
+    // Enrich each project with overhead cost and top category
     for (const row of rows) {
       const oh = db
         .prepare(
@@ -182,6 +183,21 @@ export function registerApiRoutes(app: Hono, db: Database.Database): void {
         .get(row.id, start) as Record<string, number>;
       row.overheadCost = oh.overhead_cost;
       row.userCost = row.total_cost - oh.overhead_cost;
+
+      // Dominant session category for this project
+      const cat = db
+        .prepare(
+          `
+        SELECT category, COUNT(*) as cnt
+        FROM sessions
+        WHERE project_id = ? AND started_at >= ? AND category != 'mixed'
+        GROUP BY category
+        ORDER BY cnt DESC
+        LIMIT 1
+      `,
+        )
+        .get(row.id, start) as { category: string; cnt: number } | undefined;
+      (row as any).topCategory = cat?.category ?? "mixed";
     }
 
     return c.json(rows);
@@ -204,7 +220,8 @@ export function registerApiRoutes(app: Hono, db: Database.Database): void {
         s.total_cost_usd,
         s.message_count,
         s.agent_count,
-        s.end_reason
+        s.end_reason,
+        s.category
       FROM sessions s
       WHERE s.project_id = ? AND s.started_at >= ?
       ORDER BY s.started_at DESC
@@ -353,5 +370,39 @@ export function registerApiRoutes(app: Hono, db: Database.Database): void {
 
     result.sort((a, b) => b.est_cost_usd - a.est_cost_usd);
     return c.json(result);
+  });
+
+  // Categories
+  app.get("/api/categories", (c) => {
+    const period = c.req.query("period") ?? "week";
+    const start = periodToStart(period);
+
+    const rows = db
+      .prepare(
+        `
+      SELECT
+        category,
+        COUNT(*) as session_count,
+        COALESCE(SUM(total_cost_usd), 0) as total_cost
+      FROM sessions
+      WHERE started_at >= ?
+      GROUP BY category
+      ORDER BY total_cost DESC
+    `,
+      )
+      .all(start) as Array<{
+      category: string;
+      session_count: number;
+      total_cost: number;
+    }>;
+
+    return c.json(rows);
+  });
+
+  // Optimize
+  app.get("/api/optimize", (c) => {
+    const period = c.req.query("period") ?? "month";
+    const recs = generateRecommendations(db, period);
+    return c.json(recs);
   });
 }

@@ -3,15 +3,27 @@ import { serve } from "@hono/node-server";
 import { createConnection, getDefaultDbPath } from "../db/connection.js";
 import { runMigrations } from "../db/migrate.js";
 import { seedPricing } from "../db/pricing.js";
+import { scanForNewSessions } from "../sync/scanner.js";
+import { classifyAllSessions } from "../classifier/categorize-session.js";
 import { registerApiRoutes } from "./routes.js";
 import { getStaticHtml, getStaticJs, getStaticCss } from "./static-assets.js";
 
 const app = new Hono();
 
 const dbPath = process.env.CODELEDGER_DB_PATH || getDefaultDbPath();
+const claudeDir =
+  process.env.CLAUDE_DATA_DIR ||
+  `${process.env.HOME || process.env.USERPROFILE}/.claude`;
+
 const db = createConnection(dbPath);
 runMigrations(db);
 seedPricing(db);
+
+// Scan JSONL files and classify sessions — dashboard works standalone
+console.log("Scanning session files...");
+await scanForNewSessions(db, claudeDir);
+classifyAllSessions(db);
+console.log("Scan complete.");
 
 // API routes
 registerApiRoutes(app, db);

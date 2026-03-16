@@ -14,6 +14,7 @@ import {
   upsertDailySummary,
   recalculateProjectTotals,
 } from "../db/queries.js";
+import { classifyAndUpdateSession } from "../classifier/categorize-session.js";
 
 export interface ParseResult {
   sessionId: string;
@@ -181,6 +182,9 @@ export async function parseSessionFile(
 
     // Recompute project totals from sessions
     recalculateProjectTotals(db, projectId);
+
+    // Classify session category based on tool usage pattern
+    classifyAndUpdateSession(db, sessionId);
 
     return {
       sessionId,

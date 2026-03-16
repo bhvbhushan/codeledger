@@ -13,7 +13,7 @@ beforeEach(() => {
   runMigrations(db);
   seedPricing(db);
 
-  const today = new Date().toISOString().split("T")[0];
+  const now = new Date(); const today = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
 
   // Seed test data
   db.prepare(
@@ -61,7 +61,7 @@ describe("agent_usage tool", () => {
   });
 
   it("filters by session_id", () => {
-    const today = new Date().toISOString().split("T")[0];
+    const now = new Date(); const today = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
     db.prepare(
       "INSERT INTO sessions (id, project_id, started_at, primary_model, total_cost_usd, message_count) VALUES (?, 1, ?, ?, ?, ?)"
     ).run("sess-2", today + "T11:00:00Z", "claude-sonnet-4-5-20250514", 2.00, 5);
@@ -76,7 +76,7 @@ describe("agent_usage tool", () => {
   });
 
   it("filters by project name", () => {
-    const today = new Date().toISOString().split("T")[0];
+    const now = new Date(); const today = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
     db.prepare(
       "INSERT INTO projects (path, display_name, cwd, first_seen, last_active) VALUES (?, ?, ?, ?, ?)"
     ).run("-tmp-proj2", "proj2", "/tmp/proj2", today, today);
@@ -115,7 +115,7 @@ describe("agent_usage tool", () => {
   });
 
   it("filters by source_category", () => {
-    const today = new Date().toISOString().split("T")[0];
+    const now = new Date(); const today = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
     // Insert an overhead agent
     db.prepare(
       "INSERT INTO agents (id, session_id, agent_type, model, total_input_tokens, total_output_tokens, total_cost_usd, started_at, ended_at, message_count, source_category) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"

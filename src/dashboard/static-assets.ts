@@ -16,6 +16,7 @@ export function getStaticHtml(): string {
       <button class="tab" data-tab="projects">Projects</button>
       <button class="tab" data-tab="agents">Agents</button>
       <button class="tab" data-tab="skills">Skills</button>
+      <button class="tab" data-tab="optimize">Optimize</button>
     </nav>
     <select id="period-select">
       <option value="today">Today</option>
@@ -47,7 +48,7 @@ export function getStaticHtml(): string {
         </div>
       </div>
 
-      <div class="chart-grid">
+      <div class="chart-grid chart-grid-3">
         <div class="chart-card wide">
           <div class="chart-title">Daily Spend (user vs overhead)</div>
           <canvas id="chart-daily"></canvas>
@@ -55,6 +56,10 @@ export function getStaticHtml(): string {
         <div class="chart-card">
           <div class="chart-title">Model Distribution</div>
           <canvas id="chart-models"></canvas>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Session Categories (auto-categorized)</div>
+          <canvas id="chart-categories"></canvas>
         </div>
       </div>
 
@@ -74,17 +79,20 @@ export function getStaticHtml(): string {
         <div class="chart-title">Projects</div>
         <table id="table-all-projects">
           <thead>
-            <tr><th>Project</th><th>Total Cost</th><th>Your Cost</th><th>Overhead</th><th>Sessions</th><th>Last Active</th></tr>
+            <tr><th>Project</th><th>Total Cost</th><th>Your Cost</th><th>Overhead</th><th>Sessions</th><th>Work Type</th><th>Last Active</th></tr>
           </thead>
           <tbody></tbody>
         </table>
       </div>
       <div id="project-detail" style="display:none">
         <div class="chart-card wide">
-          <div class="chart-title" id="project-detail-title">Sessions</div>
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div class="chart-title" id="project-detail-title">Sessions</div>
+            <button id="btn-view-project-agents" class="filter-btn" style="font-size:11px;">View Agents →</button>
+          </div>
           <table id="table-project-sessions">
             <thead>
-              <tr><th>Session</th><th>Started</th><th>Model</th><th>Cost</th><th>Messages</th></tr>
+              <tr><th>Session</th><th>Started</th><th>Model</th><th>Cost</th><th>Messages</th><th>Work Type</th></tr>
             </thead>
             <tbody></tbody>
           </table>
@@ -94,9 +102,9 @@ export function getStaticHtml(): string {
 
     <section id="tab-agents" class="tab-content">
       <div class="filter-bar">
-        <button class="filter-btn active" data-filter="all">All</button>
-        <button class="filter-btn" data-filter="user">User Only</button>
-        <button class="filter-btn" data-filter="overhead">Overhead Only</button>
+        <button class="filter-btn active" data-filter="all">All Agents</button>
+        <button class="filter-btn" data-filter="user">Your Work</button>
+        <button class="filter-btn" data-filter="overhead">Overhead</button>
         <span id="agent-project-filter" style="display:none; margin-left: 12px; font-size: 12px; color: var(--cyan);">
           Project: <strong id="agent-project-name"></strong>
           <button id="agent-clear-filter" style="background:none;border:none;color:var(--pink);cursor:pointer;font-size:12px;margin-left:6px;">✕ clear</button>
@@ -106,7 +114,7 @@ export function getStaticHtml(): string {
         <div class="chart-title">Agents</div>
         <table id="table-agents">
           <thead>
-            <tr><th>Agent</th><th>Type</th><th>Model</th><th>Cost</th><th>Messages</th><th>Category</th><th>Project</th></tr>
+            <tr><th>Agent</th><th>Type</th><th>Model</th><th>Cost</th><th>Messages</th><th>Source</th><th>Project</th></tr>
           </thead>
           <tbody></tbody>
         </table>
@@ -123,6 +131,14 @@ export function getStaticHtml(): string {
           <tbody></tbody>
         </table>
         <p class="disclaimer">All skill token values are estimates based on JSONL sequence analysis.</p>
+      </div>
+    </section>
+
+    <section id="tab-optimize" class="tab-content">
+      <div class="table-card">
+        <div class="chart-title">Cost Optimization Recommendations</div>
+        <div id="optimize-content"></div>
+        <p class="disclaimer">Recommendations are auto-generated from usage patterns. Savings are estimates.</p>
       </div>
     </section>
   </main>
@@ -183,6 +199,7 @@ main { max-width: 1200px; margin: 0 auto; padding: 24px; }
 .kpi-sub { font-size: 11px; color: var(--pink); margin-top: 2px; }
 
 .chart-grid { display: grid; grid-template-columns: 3fr 2fr; gap: 12px; margin-bottom: 20px; }
+.chart-grid-3 { grid-template-columns: 3fr 2fr 2fr; }
 .chart-card { background: var(--surface); padding: 16px; border-radius: 8px; position: relative; }
 .chart-card.wide { grid-column: span 1; }
 .chart-card canvas { max-height: 250px; }
@@ -213,9 +230,16 @@ tbody tr { cursor: default; }
 
 .disclaimer { font-size: 11px; color: var(--text-dim); margin-top: 12px; font-style: italic; }
 
+.rec-card { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 12px; }
+.rec-card h4 { color: var(--text); margin-bottom: 8px; font-size: 14px; }
+.rec-evidence { color: var(--text-dim); font-size: 12px; margin-bottom: 6px; }
+.rec-action { color: var(--cyan); font-size: 13px; margin-bottom: 6px; }
+.rec-savings { color: var(--green); font-weight: 700; font-size: 15px; }
+
 @media (max-width: 768px) {
   .kpi-grid { grid-template-columns: repeat(2, 1fr); }
   .chart-grid { grid-template-columns: 1fr; }
+  .chart-grid-3 { grid-template-columns: 1fr; }
   header { flex-wrap: wrap; gap: 8px; }
 }
 `;
@@ -226,6 +250,7 @@ export function getStaticJs(): string {
 let currentPeriod = 'week';
 let dailyChart = null;
 let modelChart = null;
+let categoryChart = null;
 let agentProjectFilter = null; // { id, name } when filtering agents by project
 
 // Tab switching
@@ -285,14 +310,16 @@ async function loadData() {
   else if (active === 'projects') await loadProjects();
   else if (active === 'agents') await loadAgents(document.querySelector('.filter-btn.active')?.dataset.filter ?? 'all');
   else if (active === 'skills') await loadSkills();
+  else if (active === 'optimize') await loadOptimize();
 }
 
 async function loadOverview() {
-  const [summary, daily, models, projects] = await Promise.all([
+  const [summary, daily, models, projects, categories] = await Promise.all([
     fetch('/api/summary?period=' + currentPeriod).then(r => r.json()),
     fetch('/api/daily-costs?period=' + currentPeriod).then(r => r.json()),
     fetch('/api/models?period=' + currentPeriod).then(r => r.json()),
     fetch('/api/projects?period=' + currentPeriod).then(r => r.json()),
+    fetch('/api/categories?period=' + currentPeriod).then(r => r.json()),
   ]);
 
   // KPIs
@@ -348,6 +375,29 @@ async function loadOverview() {
     }
   });
 
+  // Category chart
+  if (categoryChart) categoryChart.destroy();
+  const ctx3 = document.getElementById('chart-categories').getContext('2d');
+  const catColorMap = { generation: '#4361ee', exploration: '#4cc9f0', debugging: '#f72585', review: '#7209b7', planning: '#06d6a0', devops: '#ff8c00', mixed: '#666' };
+  const catColors = categories.map(c => catColorMap[c.category] ?? '#666');
+  categoryChart = new Chart(ctx3, {
+    type: 'doughnut',
+    data: {
+      labels: categories.map(c => c.category ?? 'uncategorized'),
+      datasets: [{
+        data: categories.map(c => c.session_count),
+        backgroundColor: catColors,
+        borderWidth: 0,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'right', labels: { color: '#888', font: { size: 11 }, padding: 12 } },
+      }
+    }
+  });
+
   // Top projects table (clickable → drill down to agents)
   const tbody = document.querySelector('#table-projects tbody');
   tbody.innerHTML = projects.slice(0, 8).map(p =>
@@ -362,7 +412,7 @@ async function loadProjects() {
   const projects = await fetch('/api/projects?period=' + currentPeriod).then(r => r.json());
   const tbody = document.querySelector('#table-all-projects tbody');
   tbody.innerHTML = projects.map(p =>
-    '<tr class="clickable-row" data-id="' + p.id + '"><td>' + p.name + '</td><td class="cost">' + fmt(p.total_cost) + '</td><td class="cost">' + fmt(p.userCost) + '</td><td class="overhead-cost">' + fmt(p.overheadCost) + '</td><td>' + p.session_count + '</td><td>' + shortDate(p.last_active) + '</td></tr>'
+    '<tr class="clickable-row" data-id="' + p.id + '"><td>' + p.name + '</td><td class="cost">' + fmt(p.total_cost) + '</td><td class="cost">' + fmt(p.userCost) + '</td><td class="overhead-cost">' + fmt(p.overheadCost) + '</td><td>' + p.session_count + '</td><td>' + (p.topCategory ?? 'mixed') + '</td><td>' + shortDate(p.last_active) + '</td></tr>'
   ).join('');
 
   // Click to drill down
@@ -373,12 +423,16 @@ async function loadProjects() {
   document.getElementById('project-detail').style.display = 'none';
 }
 
+let currentProjectDrilldown = null; // { id, name }
+
 async function loadProjectSessions(projectId, projectName) {
+  currentProjectDrilldown = { id: projectId, name: projectName };
+  document.getElementById('btn-view-project-agents').onclick = () => navigateToAgents(projectId, projectName);
   const sessions = await fetch('/api/projects/' + projectId + '/sessions?period=' + currentPeriod).then(r => r.json());
   document.getElementById('project-detail-title').textContent = projectName + ' \\u2014 Sessions';
   const tbody = document.querySelector('#table-project-sessions tbody');
   tbody.innerHTML = sessions.map(s =>
-    '<tr><td>' + shortId(s.id) + '</td><td>' + shortDate(s.started_at) + '</td><td>' + (s.primary_model ?? '\\u2014') + '</td><td class="cost">' + fmt(s.total_cost_usd) + '</td><td>' + s.message_count + '</td></tr>'
+    '<tr><td>' + shortId(s.id) + '</td><td>' + shortDate(s.started_at) + '</td><td>' + (s.primary_model ?? '\\u2014') + '</td><td class="cost">' + fmt(s.total_cost_usd) + '</td><td>' + s.message_count + '</td><td>' + (s.category ?? 'mixed') + '</td></tr>'
   ).join('');
   document.getElementById('project-detail').style.display = 'block';
 }
@@ -399,6 +453,20 @@ async function loadSkills() {
   tbody.innerHTML = skills.map(s =>
     '<tr><td>' + s.skill_name + '</td><td>' + s.invocation_count + '</td><td>~' + fmtK(s.est_input_tokens) + ' / ' + fmtK(s.est_output_tokens) + '</td><td class="cost">~' + fmt(s.est_cost_usd) + '</td></tr>'
   ).join('');
+}
+
+async function loadOptimize() {
+  const recs = await fetch('/api/optimize?period=' + currentPeriod).then(r => r.json());
+  const container = document.getElementById('optimize-content');
+  if (recs.length === 0) {
+    container.innerHTML = '<p style="color: var(--green); padding: 20px; text-align: center;">No optimization recommendations — your usage looks efficient!</p>';
+    return;
+  }
+  const totalSavings = recs.reduce((s, r) => s + r.potential_savings, 0);
+  container.innerHTML = '<p style="margin-bottom: 16px; font-size: 15px;">Potential savings: <span class="rec-savings">~$' + totalSavings.toFixed(2) + '</span></p>' +
+    recs.map((r, i) =>
+      '<div class="rec-card"><h4>' + (i+1) + '. ' + r.what + '</h4><div class="rec-evidence">' + r.evidence + '</div><div class="rec-action">' + r.recommendation + '</div><div class="rec-savings">~$' + r.potential_savings.toFixed(2) + ' potential savings</div></div>'
+    ).join('');
 }
 
 // Initial load
