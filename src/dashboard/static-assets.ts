@@ -179,8 +179,9 @@ main { max-width: 1200px; margin: 0 auto; padding: 24px; }
 .kpi-sub { font-size: 11px; color: var(--pink); margin-top: 2px; }
 
 .chart-grid { display: grid; grid-template-columns: 3fr 2fr; gap: 12px; margin-bottom: 20px; }
-.chart-card { background: var(--surface); padding: 16px; border-radius: 8px; }
+.chart-card { background: var(--surface); padding: 16px; border-radius: 8px; position: relative; }
 .chart-card.wide { grid-column: span 1; }
+.chart-card canvas { max-height: 250px; }
 .chart-title { font-size: 12px; color: var(--text-dim); margin-bottom: 12px; }
 
 .table-card { background: var(--surface); padding: 16px; border-radius: 8px; margin-bottom: 20px; }
