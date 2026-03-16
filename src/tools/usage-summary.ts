@@ -72,6 +72,13 @@ export function queryUsageSummary(
     )
     .all(...params) as { model: string | null; cost: number }[];
 
+  let agentFilter = "WHERE a.started_at >= ?";
+  const agentParams: (string | number)[] = [start];
+  if (project) {
+    agentFilter += " AND p.display_name = ?";
+    agentParams.push(project);
+  }
+
   const overheadRow = db
     .prepare(
       `
@@ -79,11 +86,11 @@ export function queryUsageSummary(
     FROM agents a
     JOIN sessions s ON a.session_id = s.id
     LEFT JOIN projects p ON s.project_id = p.id
-    ${sessionFilter.replace("s.started_at", "a.started_at")}
+    ${agentFilter}
     AND a.source_category = 'overhead'
   `
     )
-    .get(...params) as { overhead_cost: number } | undefined;
+    .get(...agentParams) as { overhead_cost: number } | undefined;
 
   const totalCost = totals?.cost ?? 0;
   const modelDistribution = models.map((m) => ({

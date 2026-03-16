@@ -1,6 +1,4 @@
-import { createConnection, getDefaultDbPath } from "../db/connection.js";
-import { runMigrations } from "../db/migrate.js";
-import { seedPricing } from "../db/pricing.js";
+import { initHookDb } from "./init-db.js";
 import { insertSkillInvocation } from "../db/queries.js";
 
 interface PostToolUsePayload {
@@ -21,12 +19,9 @@ export async function handleSkillUse(
   payload: PostToolUsePayload,
   dbPath?: string
 ): Promise<void> {
-  const db = createConnection(dbPath ?? getDefaultDbPath());
+  const db = initHookDb(dbPath);
 
   try {
-    runMigrations(db);
-    seedPricing(db);
-
     // Extract skill name — tool_input structure is inferred, not verified
     const skillName = payload.tool_input?.skill;
     if (!skillName) {
@@ -52,10 +47,6 @@ export async function handleSkillUse(
         throw err;
       }
     }
-  } catch (err) {
-    process.stderr.write(
-      `[codeledger] PostToolUse(Skill) hook error: ${err}\n`
-    );
   } finally {
     db.close();
   }

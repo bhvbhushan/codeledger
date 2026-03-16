@@ -1,6 +1,7 @@
 import type { Hono } from "hono";
 import type Database from "better-sqlite3";
 import { generateRecommendations } from "../tools/cost-optimize.js";
+import { querySkillUsage } from "../tools/skill-usage.js";
 import { periodToStart } from "../utils/period.js";
 
 export function registerApiRoutes(app: Hono, db: Database.Database): void {
@@ -255,97 +256,8 @@ export function registerApiRoutes(app: Hono, db: Database.Database): void {
   // Skills
   app.get("/api/skills", (c) => {
     const period = c.req.query("period") ?? "week";
-    const start = periodToStart(period);
-
-    // Get skill invocations grouped by name
-    const invocations = db
-      .prepare(
-        `
-      SELECT sk.session_id, sk.skill_name, sk.invoked_at
-      FROM skills sk
-      WHERE sk.invoked_at >= ?
-      ORDER BY sk.session_id, sk.invoked_at
-    `,
-      )
-      .all(start) as Array<{
-      session_id: string;
-      skill_name: string;
-      invoked_at: string;
-    }>;
-
-    if (invocations.length === 0) {
-      return c.json([]);
-    }
-
-    // Group by session for window-based estimation
-    const bySession = new Map<
-      string,
-      Array<{ session_id: string; skill_name: string; invoked_at: string }>
-    >();
-    for (const inv of invocations) {
-      const list = bySession.get(inv.session_id) ?? [];
-      list.push(inv);
-      bySession.set(inv.session_id, list);
-    }
-
-    const skillTotals = new Map<
-      string,
-      { count: number; input: number; output: number; cost: number }
-    >();
-
-    for (const [sessionId, sessionInvs] of bySession) {
-      const session = db
-        .prepare("SELECT ended_at FROM sessions WHERE id = ?")
-        .get(sessionId) as { ended_at: string } | undefined;
-
-      for (let i = 0; i < sessionInvs.length; i++) {
-        const inv = sessionInvs[i];
-        const windowEnd =
-          i + 1 < sessionInvs.length
-            ? sessionInvs[i + 1].invoked_at
-            : (session?.ended_at ?? "9999-12-31T23:59:59Z");
-
-        const usage = db
-          .prepare(
-            `
-          SELECT
-            COALESCE(SUM(input_tokens), 0) as input_tokens,
-            COALESCE(SUM(output_tokens), 0) as output_tokens,
-            COALESCE(SUM(cost_usd), 0) as cost_usd
-          FROM token_usage
-          WHERE session_id = ? AND timestamp >= ? AND timestamp < ?
-        `,
-          )
-          .get(sessionId, inv.invoked_at, windowEnd) as {
-          input_tokens: number;
-          output_tokens: number;
-          cost_usd: number;
-        };
-
-        const existing = skillTotals.get(inv.skill_name) ?? {
-          count: 0,
-          input: 0,
-          output: 0,
-          cost: 0,
-        };
-        existing.count += 1;
-        existing.input += usage.input_tokens;
-        existing.output += usage.output_tokens;
-        existing.cost += usage.cost_usd;
-        skillTotals.set(inv.skill_name, existing);
-      }
-    }
-
-    const result = Array.from(skillTotals.entries()).map(([name, totals]) => ({
-      skill_name: name,
-      invocation_count: totals.count,
-      est_input_tokens: totals.input,
-      est_output_tokens: totals.output,
-      est_cost_usd: totals.cost,
-      is_estimated: true,
-    }));
-
-    result.sort((a, b) => b.est_cost_usd - a.est_cost_usd);
+    const project = c.req.query("project") ?? undefined;
+    const result = querySkillUsage(db, period, project);
     return c.json(result);
   });
 

@@ -56,6 +56,6 @@ serve({ fetch: app.fetch, port }, (info) => {
         : process.platform === "win32"
           ? "start"
           : "xdg-open";
-    exec(`${cmd} ${url}`);
+    exec(`${cmd} "${url}"`);
   });
 });

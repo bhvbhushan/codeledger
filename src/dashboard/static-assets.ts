@@ -253,6 +253,11 @@ let modelChart = null;
 let categoryChart = null;
 let agentProjectFilter = null; // { id, name } when filtering agents by project
 
+function esc(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
 // Tab switching
 document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', () => {
@@ -401,7 +406,7 @@ async function loadOverview() {
   // Top projects table (clickable → drill down to agents)
   const tbody = document.querySelector('#table-projects tbody');
   tbody.innerHTML = projects.slice(0, 8).map(p =>
-    '<tr class="clickable-row" data-id="' + p.id + '" data-name="' + p.name + '"><td>' + p.name + '</td><td class="cost">' + fmt(p.userCost) + '</td><td class="overhead-cost">' + fmt(p.overheadCost) + '</td><td>' + p.session_count + '</td></tr>'
+    '<tr class="clickable-row" data-id="' + p.id + '" data-name="' + esc(p.name) + '"><td>' + esc(p.name) + '</td><td class="cost">' + fmt(p.userCost) + '</td><td class="overhead-cost">' + fmt(p.overheadCost) + '</td><td>' + p.session_count + '</td></tr>'
   ).join('');
   tbody.querySelectorAll('.clickable-row').forEach(row => {
     row.addEventListener('click', () => navigateToAgents(row.dataset.id, row.dataset.name));
@@ -412,7 +417,7 @@ async function loadProjects() {
   const projects = await fetch('/api/projects?period=' + currentPeriod).then(r => r.json());
   const tbody = document.querySelector('#table-all-projects tbody');
   tbody.innerHTML = projects.map(p =>
-    '<tr class="clickable-row" data-id="' + p.id + '"><td>' + p.name + '</td><td class="cost">' + fmt(p.total_cost) + '</td><td class="cost">' + fmt(p.userCost) + '</td><td class="overhead-cost">' + fmt(p.overheadCost) + '</td><td>' + p.session_count + '</td><td>' + (p.topCategory ?? 'mixed') + '</td><td>' + shortDate(p.last_active) + '</td></tr>'
+    '<tr class="clickable-row" data-id="' + p.id + '"><td>' + esc(p.name) + '</td><td class="cost">' + fmt(p.total_cost) + '</td><td class="cost">' + fmt(p.userCost) + '</td><td class="overhead-cost">' + fmt(p.overheadCost) + '</td><td>' + p.session_count + '</td><td>' + esc(p.topCategory ?? 'mixed') + '</td><td>' + shortDate(p.last_active) + '</td></tr>'
   ).join('');
 
   // Click to drill down
@@ -432,7 +437,7 @@ async function loadProjectSessions(projectId, projectName) {
   document.getElementById('project-detail-title').textContent = projectName + ' \\u2014 Sessions';
   const tbody = document.querySelector('#table-project-sessions tbody');
   tbody.innerHTML = sessions.map(s =>
-    '<tr><td>' + shortId(s.id) + '</td><td>' + shortDate(s.started_at) + '</td><td>' + (s.primary_model ?? '\\u2014') + '</td><td class="cost">' + fmt(s.total_cost_usd) + '</td><td>' + s.message_count + '</td><td>' + (s.category ?? 'mixed') + '</td></tr>'
+    '<tr><td>' + shortId(s.id) + '</td><td>' + shortDate(s.started_at) + '</td><td>' + esc(s.primary_model ?? '\\u2014') + '</td><td class="cost">' + fmt(s.total_cost_usd) + '</td><td>' + s.message_count + '</td><td>' + esc(s.category ?? 'mixed') + '</td></tr>'
   ).join('');
   document.getElementById('project-detail').style.display = 'block';
 }
@@ -443,7 +448,7 @@ async function loadAgents(filter) {
   const agents = await fetch(url).then(r => r.json());
   const tbody = document.querySelector('#table-agents tbody');
   tbody.innerHTML = agents.map(a =>
-    '<tr><td>' + shortId(a.agent_id) + '</td><td>' + (a.agent_type ?? '\\u2014') + '</td><td>' + (a.model ?? '\\u2014') + '</td><td class="cost">' + fmt(a.total_cost_usd) + '</td><td>' + a.message_count + '</td><td class="' + (a.source_category === 'overhead' ? 'category-overhead' : 'category-user') + '">' + a.source_category + '</td><td>' + a.project + '</td></tr>'
+    '<tr><td>' + shortId(a.agent_id) + '</td><td>' + esc(a.agent_type ?? '\\u2014') + '</td><td>' + esc(a.model ?? '\\u2014') + '</td><td class="cost">' + fmt(a.total_cost_usd) + '</td><td>' + a.message_count + '</td><td class="' + (a.source_category === 'overhead' ? 'category-overhead' : 'category-user') + '">' + esc(a.source_category) + '</td><td>' + esc(a.project) + '</td></tr>'
   ).join('');
 }
 
@@ -451,7 +456,7 @@ async function loadSkills() {
   const skills = await fetch('/api/skills?period=' + currentPeriod).then(r => r.json());
   const tbody = document.querySelector('#table-skills tbody');
   tbody.innerHTML = skills.map(s =>
-    '<tr><td>' + s.skill_name + '</td><td>' + s.invocation_count + '</td><td>~' + fmtK(s.est_input_tokens) + ' / ' + fmtK(s.est_output_tokens) + '</td><td class="cost">~' + fmt(s.est_cost_usd) + '</td></tr>'
+    '<tr><td>' + esc(s.skill_name) + '</td><td>' + s.invocation_count + '</td><td>~' + fmtK(s.est_input_tokens) + ' / ' + fmtK(s.est_output_tokens) + '</td><td class="cost">~' + fmt(s.est_cost_usd) + '</td></tr>'
   ).join('');
 }
 
@@ -465,7 +470,7 @@ async function loadOptimize() {
   const totalSavings = recs.reduce((s, r) => s + r.potential_savings, 0);
   container.innerHTML = '<p style="margin-bottom: 16px; font-size: 15px;">Potential savings: <span class="rec-savings">~$' + totalSavings.toFixed(2) + '</span></p>' +
     recs.map((r, i) =>
-      '<div class="rec-card"><h4>' + (i+1) + '. ' + r.what + '</h4><div class="rec-evidence">' + r.evidence + '</div><div class="rec-action">' + r.recommendation + '</div><div class="rec-savings">~$' + r.potential_savings.toFixed(2) + ' potential savings</div></div>'
+      '<div class="rec-card"><h4>' + (i+1) + '. ' + esc(r.what) + '</h4><div class="rec-evidence">' + esc(r.evidence) + '</div><div class="rec-action">' + esc(r.recommendation) + '</div><div class="rec-savings">~$' + r.potential_savings.toFixed(2) + ' potential savings</div></div>'
     ).join('');
 }
 
