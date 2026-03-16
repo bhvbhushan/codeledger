@@ -97,6 +97,10 @@ export function getStaticHtml(): string {
         <button class="filter-btn active" data-filter="all">All</button>
         <button class="filter-btn" data-filter="user">User Only</button>
         <button class="filter-btn" data-filter="overhead">Overhead Only</button>
+        <span id="agent-project-filter" style="display:none; margin-left: 12px; font-size: 12px; color: var(--cyan);">
+          Project: <strong id="agent-project-name"></strong>
+          <button id="agent-clear-filter" style="background:none;border:none;color:var(--pink);cursor:pointer;font-size:12px;margin-left:6px;">✕ clear</button>
+        </span>
       </div>
       <div class="table-card">
         <div class="chart-title">Agents</div>
@@ -222,6 +226,7 @@ export function getStaticJs(): string {
 let currentPeriod = 'week';
 let dailyChart = null;
 let modelChart = null;
+let agentProjectFilter = null; // { id, name } when filtering agents by project
 
 // Tab switching
 document.querySelectorAll('.tab').forEach(tab => {
@@ -248,6 +253,26 @@ document.querySelectorAll('.filter-btn').forEach(btn => {
     loadAgents(btn.dataset.filter);
   });
 });
+
+// Clear agent project filter
+document.getElementById('agent-clear-filter')?.addEventListener('click', () => {
+  agentProjectFilter = null;
+  document.getElementById('agent-project-filter').style.display = 'none';
+  loadAgents(document.querySelector('.filter-btn.active')?.dataset.filter ?? 'all');
+});
+
+function navigateToAgents(projectId, projectName) {
+  agentProjectFilter = { id: projectId, name: projectName };
+  // Switch to agents tab
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+  document.querySelector('[data-tab="agents"]').classList.add('active');
+  document.getElementById('tab-agents').classList.add('active');
+  // Show filter label
+  document.getElementById('agent-project-filter').style.display = 'inline';
+  document.getElementById('agent-project-name').textContent = projectName;
+  loadAgents(document.querySelector('.filter-btn.active')?.dataset.filter ?? 'all');
+}
 
 function fmt(n) { return '$' + Number(n).toFixed(2); }
 function fmtK(n) { return Number(n).toLocaleString(); }
@@ -323,11 +348,14 @@ async function loadOverview() {
     }
   });
 
-  // Top projects table
+  // Top projects table (clickable → drill down to agents)
   const tbody = document.querySelector('#table-projects tbody');
   tbody.innerHTML = projects.slice(0, 8).map(p =>
-    '<tr><td>' + p.name + '</td><td class="cost">' + fmt(p.userCost) + '</td><td class="overhead-cost">' + fmt(p.overheadCost) + '</td><td>' + p.session_count + '</td></tr>'
+    '<tr class="clickable-row" data-id="' + p.id + '" data-name="' + p.name + '"><td>' + p.name + '</td><td class="cost">' + fmt(p.userCost) + '</td><td class="overhead-cost">' + fmt(p.overheadCost) + '</td><td>' + p.session_count + '</td></tr>'
   ).join('');
+  tbody.querySelectorAll('.clickable-row').forEach(row => {
+    row.addEventListener('click', () => navigateToAgents(row.dataset.id, row.dataset.name));
+  });
 }
 
 async function loadProjects() {
@@ -356,7 +384,8 @@ async function loadProjectSessions(projectId, projectName) {
 }
 
 async function loadAgents(filter) {
-  const url = '/api/agents?period=' + currentPeriod + (filter !== 'all' ? '&source_category=' + filter : '');
+  let url = '/api/agents?period=' + currentPeriod + (filter !== 'all' ? '&source_category=' + filter : '');
+  if (agentProjectFilter) url += '&project_id=' + agentProjectFilter.id;
   const agents = await fetch(url).then(r => r.json());
   const tbody = document.querySelector('#table-agents tbody');
   tbody.innerHTML = agents.map(a =>
