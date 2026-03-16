@@ -43,13 +43,14 @@ interface AgentUsageRow {
   started_at: string | null;
   ended_at: string | null;
   message_count: number;
+  source_category: string;
   project: string;
 }
 
 export function queryAgentUsage(
   db: Database.Database,
   period: string,
-  filters?: { sessionId?: string; project?: string }
+  filters?: { sessionId?: string; project?: string; sourceCategory?: string }
 ): AgentUsageRow[] {
   const { start } = periodToDateRange(period);
 
@@ -64,6 +65,11 @@ export function queryAgentUsage(
   if (filters?.project) {
     whereClause += " AND p.display_name = ?";
     params.push(filters.project);
+  }
+
+  if (filters?.sourceCategory) {
+    whereClause += " AND a.source_category = ?";
+    params.push(filters.sourceCategory);
   }
 
   return db
@@ -83,6 +89,7 @@ export function queryAgentUsage(
       a.started_at,
       a.ended_at,
       a.message_count,
+      a.source_category,
       p.display_name as project
     FROM agents a
     JOIN sessions s ON a.session_id = s.id
@@ -107,11 +114,16 @@ export function registerAgentUsage(
       period: z
         .enum(["today", "week", "month", "all"])
         .default("week"),
+      source_category: z
+        .enum(["user", "overhead", "all"])
+        .default("all")
+        .describe("Filter: 'user' for coding work, 'overhead' for background agents"),
     },
-    async ({ session_id, project, period }) => {
+    async ({ session_id, project, period, source_category }) => {
       const agents = queryAgentUsage(db, period, {
         sessionId: session_id,
         project,
+        sourceCategory: source_category === "all" ? undefined : source_category,
       });
 
       if (agents.length === 0) {
@@ -126,10 +138,13 @@ export function registerAgentUsage(
       }
 
       const totalCost = agents.reduce((sum, a) => sum + a.total_cost_usd, 0);
+      const userCost = agents.filter(a => a.source_category === "user").reduce((s, a) => s + a.total_cost_usd, 0);
+      const overheadCost = agents.filter(a => a.source_category === "overhead").reduce((s, a) => s + a.total_cost_usd, 0);
 
       const lines = [
         `## Agent Usage (${period})`,
         `**Total agents:** ${agents.length} | **Total cost:** $${totalCost.toFixed(2)}`,
+        `**Your coding agents:** $${userCost.toFixed(2)} | **Background overhead:** $${overheadCost.toFixed(2)}`,
         "",
         "| Agent | Type | Model | Tokens (in/out) | Cost | Messages | Session | Project |",
         "|-------|------|-------|-----------------|------|----------|---------|---------|",

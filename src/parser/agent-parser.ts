@@ -6,6 +6,7 @@ import {
   deduplicateMessages,
 } from "./message-extractor.js";
 import { calculateCost } from "../db/pricing.js";
+import { classifyAgentSource } from "./classify-agent.js";
 
 export interface AgentMeta {
   agentType: string;
@@ -24,6 +25,7 @@ export interface AgentParseResult {
   startedAt: string | null;
   endedAt: string | null;
   messageCount: number;
+  sourceCategory: "user" | "overhead";
 }
 
 export function readAgentMeta(metaPath: string): AgentMeta | null {
@@ -114,6 +116,7 @@ export async function parseAgentFile(
     startedAt,
     endedAt,
     messageCount: messages.length,
+    sourceCategory: classifyAgentSource(agentId),
   };
 
   // Write to agents table — use INSERT OR REPLACE for idempotency
@@ -124,8 +127,8 @@ export async function parseAgentFile(
       (id, session_id, agent_type, description, model,
        total_input_tokens, total_output_tokens,
        total_cache_create_tokens, total_cache_read_tokens,
-       total_cost_usd, started_at, ended_at, message_count)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       total_cost_usd, started_at, ended_at, message_count, source_category)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       agentId,
       sessionId,
@@ -139,7 +142,8 @@ export async function parseAgentFile(
       totalCost,
       startedAt,
       endedAt,
-      messages.length
+      messages.length,
+      classifyAgentSource(agentId)
     );
   } catch (err: any) {
     // FK violation means parent session not in DB yet — scanner will backfill

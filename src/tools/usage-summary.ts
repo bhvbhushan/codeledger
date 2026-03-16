@@ -37,6 +37,7 @@ interface UsageSummary {
   sessionCount: number;
   topProject: string | null;
   modelDistribution: { model: string; cost: number; pct: number }[];
+  overheadCostUsd: number;
 }
 
 export function queryUsageSummary(
@@ -98,6 +99,19 @@ export function queryUsageSummary(
     )
     .all(...params) as { model: string | null; cost: number }[];
 
+  const overheadRow = db
+    .prepare(
+      `
+    SELECT COALESCE(SUM(a.total_cost_usd), 0) as overhead_cost
+    FROM agents a
+    JOIN sessions s ON a.session_id = s.id
+    LEFT JOIN projects p ON s.project_id = p.id
+    ${sessionFilter.replace("s.started_at", "a.started_at")}
+    AND a.source_category = 'overhead'
+  `
+    )
+    .get(...params) as { overhead_cost: number } | undefined;
+
   const totalCost = totals?.cost ?? 0;
   const modelDistribution = models.map((m) => ({
     model: m.model ?? "unknown",
@@ -112,6 +126,7 @@ export function queryUsageSummary(
     sessionCount: totals?.session_count ?? 0,
     topProject: topProj?.display_name ?? null,
     modelDistribution,
+    overheadCostUsd: overheadRow?.overhead_cost ?? 0,
   };
 }
 
@@ -137,6 +152,7 @@ export function registerUsageSummary(
         `**Sessions:** ${s.sessionCount}`,
         `**Tokens:** ${s.totalInputTokens.toLocaleString()} input, ${s.totalOutputTokens.toLocaleString()} output`,
         s.topProject ? `**Top Project:** ${s.topProject}` : "",
+        s.overheadCostUsd > 0 ? `**Background overhead:** $${s.overheadCostUsd.toFixed(2)} (plugin observers, system agents)` : "",
         "",
         "**Model Distribution:**",
         ...s.modelDistribution.map(

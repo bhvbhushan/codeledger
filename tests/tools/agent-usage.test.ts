@@ -107,4 +107,31 @@ describe("agent_usage tool", () => {
     const result = queryAgentUsage(db, "all");
     expect(result).toHaveLength(2);
   });
+
+  it("returns source_category field defaulting to user", () => {
+    const result = queryAgentUsage(db, "today");
+    expect(result[0].source_category).toBe("user");
+    expect(result[1].source_category).toBe("user");
+  });
+
+  it("filters by source_category", () => {
+    const today = new Date().toISOString().split("T")[0];
+    // Insert an overhead agent
+    db.prepare(
+      "INSERT INTO agents (id, session_id, agent_type, model, total_input_tokens, total_output_tokens, total_cost_usd, started_at, ended_at, message_count, source_category) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    ).run("acompact-abc123", "sess-1", "compaction", "claude-sonnet-4-5-20250514", 800, 200, 0.08, today + "T10:03:00Z", today + "T10:04:00Z", 2, "overhead");
+
+    const userOnly = queryAgentUsage(db, "today", { sourceCategory: "user" });
+    expect(userOnly).toHaveLength(2);
+    expect(userOnly.every((a: any) => a.source_category === "user")).toBe(true);
+
+    const overheadOnly = queryAgentUsage(db, "today", { sourceCategory: "overhead" });
+    expect(overheadOnly).toHaveLength(1);
+    expect(overheadOnly[0].agent_id).toBe("acompact-abc123");
+    expect(overheadOnly[0].source_category).toBe("overhead");
+
+    // No filter returns all 3
+    const all = queryAgentUsage(db, "today");
+    expect(all).toHaveLength(3);
+  });
 });

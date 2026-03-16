@@ -115,14 +115,14 @@ describe("schema v2 migration", () => {
     db.close();
   });
 
-  it("schema version is 2 after migration", () => {
+  it("schema version is 3 after migration", () => {
     const db = createConnection(TEST_DB);
     runMigrations(db);
 
     const version = db
       .prepare("SELECT MAX(version) as v FROM schema_version")
       .get() as any;
-    expect(version.v).toBe(2);
+    expect(version.v).toBe(3);
     db.close();
   });
 
@@ -134,7 +134,7 @@ describe("schema v2 migration", () => {
     const version = db
       .prepare("SELECT MAX(version) as v FROM schema_version")
       .get() as any;
-    expect(version.v).toBe(2);
+    expect(version.v).toBe(3);
 
     const tables = db
       .prepare(
@@ -173,6 +173,19 @@ describe("schema v2 migration", () => {
     db.close();
   });
 
+  it("agents table has source_category column after v3 migration", () => {
+    const db = createConnection(TEST_DB);
+    runMigrations(db);
+
+    const columns = db
+      .prepare("PRAGMA table_info(agents)")
+      .all()
+      .map((c: any) => c.name);
+
+    expect(columns).toContain("source_category");
+    db.close();
+  });
+
   it("creates indexes for agents and skills", () => {
     const db = createConnection(TEST_DB);
     runMigrations(db);
@@ -189,6 +202,7 @@ describe("schema v2 migration", () => {
     expect(indexes).toContain("idx_skills_session");
     expect(indexes).toContain("idx_skills_name");
     expect(indexes).toContain("idx_skills_invoked_at");
+    expect(indexes).toContain("idx_agents_source_category");
     db.close();
   });
 });
