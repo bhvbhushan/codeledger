@@ -145,3 +145,17 @@ export function recalculateProjectTotals(
     WHERE id = ?
   `).run(projectId, projectId, projectId, projectId, projectId, projectId);
 }
+
+export function insertSkillInvocation(
+  db: Database.Database,
+  skill: {
+    sessionId: string;
+    skillName: string;
+    invokedAt: string;
+  }
+): void {
+  db.prepare(`
+    INSERT INTO skills (session_id, skill_name, invoked_at, is_estimated)
+    VALUES (?, ?, ?, TRUE)
+  `).run(skill.sessionId, skill.skillName, skill.invokedAt);
+}
