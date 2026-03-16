@@ -13,7 +13,7 @@ beforeEach(() => {
   runMigrations(db);
   seedPricing(db);
 
-  const today = new Date().toISOString().split("T")[0];
+  const now = new Date(); const today = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
 
   // Seed project + session
   db.prepare(
@@ -103,7 +103,7 @@ describe("skill_usage tool", () => {
   });
 
   it("filters by project name", () => {
-    const today = new Date().toISOString().split("T")[0];
+    const now = new Date(); const today = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
     db.prepare(
       "INSERT INTO projects (path, display_name, cwd, first_seen, last_active) VALUES (?, ?, ?, ?, ?)"
     ).run("-tmp-proj2", "proj2", "/tmp/proj2", today, today);

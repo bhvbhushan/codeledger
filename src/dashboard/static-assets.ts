@@ -79,17 +79,20 @@ export function getStaticHtml(): string {
         <div class="chart-title">Projects</div>
         <table id="table-all-projects">
           <thead>
-            <tr><th>Project</th><th>Total Cost</th><th>Your Cost</th><th>Overhead</th><th>Sessions</th><th>Last Active</th></tr>
+            <tr><th>Project</th><th>Total Cost</th><th>Your Cost</th><th>Overhead</th><th>Sessions</th><th>Top Category</th><th>Last Active</th></tr>
           </thead>
           <tbody></tbody>
         </table>
       </div>
       <div id="project-detail" style="display:none">
         <div class="chart-card wide">
-          <div class="chart-title" id="project-detail-title">Sessions</div>
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div class="chart-title" id="project-detail-title">Sessions</div>
+            <button id="btn-view-project-agents" class="filter-btn" style="font-size:11px;">View Agents →</button>
+          </div>
           <table id="table-project-sessions">
             <thead>
-              <tr><th>Session</th><th>Started</th><th>Model</th><th>Cost</th><th>Messages</th></tr>
+              <tr><th>Session</th><th>Started</th><th>Model</th><th>Cost</th><th>Messages</th><th>Category</th></tr>
             </thead>
             <tbody></tbody>
           </table>
@@ -409,7 +412,7 @@ async function loadProjects() {
   const projects = await fetch('/api/projects?period=' + currentPeriod).then(r => r.json());
   const tbody = document.querySelector('#table-all-projects tbody');
   tbody.innerHTML = projects.map(p =>
-    '<tr class="clickable-row" data-id="' + p.id + '"><td>' + p.name + '</td><td class="cost">' + fmt(p.total_cost) + '</td><td class="cost">' + fmt(p.userCost) + '</td><td class="overhead-cost">' + fmt(p.overheadCost) + '</td><td>' + p.session_count + '</td><td>' + shortDate(p.last_active) + '</td></tr>'
+    '<tr class="clickable-row" data-id="' + p.id + '"><td>' + p.name + '</td><td class="cost">' + fmt(p.total_cost) + '</td><td class="cost">' + fmt(p.userCost) + '</td><td class="overhead-cost">' + fmt(p.overheadCost) + '</td><td>' + p.session_count + '</td><td>' + (p.topCategory ?? 'mixed') + '</td><td>' + shortDate(p.last_active) + '</td></tr>'
   ).join('');
 
   // Click to drill down
@@ -420,12 +423,16 @@ async function loadProjects() {
   document.getElementById('project-detail').style.display = 'none';
 }
 
+let currentProjectDrilldown = null; // { id, name }
+
 async function loadProjectSessions(projectId, projectName) {
+  currentProjectDrilldown = { id: projectId, name: projectName };
+  document.getElementById('btn-view-project-agents').onclick = () => navigateToAgents(projectId, projectName);
   const sessions = await fetch('/api/projects/' + projectId + '/sessions?period=' + currentPeriod).then(r => r.json());
   document.getElementById('project-detail-title').textContent = projectName + ' \\u2014 Sessions';
   const tbody = document.querySelector('#table-project-sessions tbody');
   tbody.innerHTML = sessions.map(s =>
-    '<tr><td>' + shortId(s.id) + '</td><td>' + shortDate(s.started_at) + '</td><td>' + (s.primary_model ?? '\\u2014') + '</td><td class="cost">' + fmt(s.total_cost_usd) + '</td><td>' + s.message_count + '</td></tr>'
+    '<tr><td>' + shortId(s.id) + '</td><td>' + shortDate(s.started_at) + '</td><td>' + (s.primary_model ?? '\\u2014') + '</td><td class="cost">' + fmt(s.total_cost_usd) + '</td><td>' + s.message_count + '</td><td>' + (s.category ?? 'mixed') + '</td></tr>'
   ).join('');
   document.getElementById('project-detail').style.display = 'block';
 }
