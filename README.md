@@ -186,6 +186,16 @@ npm run dev       # tsup --watch
 - [ ] Budget alerts and anomaly detection
 - [ ] Multi-tool support (Cursor, Copilot)
 
+## Contributing
+
+Contributions are welcome! Please read the [Contributing Guidelines](./CONTRIBUTING.md) before submitting a PR.
+
+- **Bug reports** and **feature requests** — use [Issue Templates](https://github.com/bhvbhushan/codeledger/issues/new/choose)
+- **Questions** — use [GitHub Discussions](https://github.com/bhvbhushan/codeledger/discussions)
+- **Security vulnerabilities** — see [Security Policy](./SECURITY.md)
+
+All contributors are expected to follow the [Code of Conduct](./CODE_OF_CONDUCT.md).
+
 ## License
 
 [MIT](./LICENSE)
