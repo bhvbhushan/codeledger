@@ -79,7 +79,7 @@ export function getStaticHtml(): string {
         <div class="chart-title">Projects</div>
         <table id="table-all-projects">
           <thead>
-            <tr><th>Project</th><th>Total Cost</th><th>Your Cost</th><th>Overhead</th><th>Sessions</th><th>Top Category</th><th>Last Active</th></tr>
+            <tr><th>Project</th><th>Total Cost</th><th>Your Cost</th><th>Overhead</th><th>Sessions</th><th>Work Type</th><th>Last Active</th></tr>
           </thead>
           <tbody></tbody>
         </table>
@@ -92,7 +92,7 @@ export function getStaticHtml(): string {
           </div>
           <table id="table-project-sessions">
             <thead>
-              <tr><th>Session</th><th>Started</th><th>Model</th><th>Cost</th><th>Messages</th><th>Category</th></tr>
+              <tr><th>Session</th><th>Started</th><th>Model</th><th>Cost</th><th>Messages</th><th>Work Type</th></tr>
             </thead>
             <tbody></tbody>
           </table>
@@ -102,9 +102,9 @@ export function getStaticHtml(): string {
 
     <section id="tab-agents" class="tab-content">
       <div class="filter-bar">
-        <button class="filter-btn active" data-filter="all">All</button>
-        <button class="filter-btn" data-filter="user">User Only</button>
-        <button class="filter-btn" data-filter="overhead">Overhead Only</button>
+        <button class="filter-btn active" data-filter="all">All Agents</button>
+        <button class="filter-btn" data-filter="user">Your Work</button>
+        <button class="filter-btn" data-filter="overhead">Overhead</button>
         <span id="agent-project-filter" style="display:none; margin-left: 12px; font-size: 12px; color: var(--cyan);">
           Project: <strong id="agent-project-name"></strong>
           <button id="agent-clear-filter" style="background:none;border:none;color:var(--pink);cursor:pointer;font-size:12px;margin-left:6px;">✕ clear</button>
@@ -114,7 +114,7 @@ export function getStaticHtml(): string {
         <div class="chart-title">Agents</div>
         <table id="table-agents">
           <thead>
-            <tr><th>Agent</th><th>Type</th><th>Model</th><th>Cost</th><th>Messages</th><th>Category</th><th>Project</th></tr>
+            <tr><th>Agent</th><th>Type</th><th>Model</th><th>Cost</th><th>Messages</th><th>Source</th><th>Project</th></tr>
           </thead>
           <tbody></tbody>
         </table>
