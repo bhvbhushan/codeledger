@@ -1,27 +1,64 @@
 {
   "name": "codeledger",
   "version": "0.1.0",
-  "description": "Token-level cost intelligence for Claude Code",
+  "description": "Token-level cost intelligence for Claude Code — per-project, per-agent, per-skill usage tracking with conversational MCP querying and local dashboard",
   "type": "module",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "bin": {
     "codeledger": "./dist/cli.js",
     "codeledger-dashboard": "./dist/dashboard.js"
   },
+  "files": [
+    "dist",
+    ".claude-plugin",
+    ".mcp.json",
+    "hooks",
+    "commands",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "tsc --noEmit",
-    "dashboard": "node dist/dashboard.js"
+    "dashboard": "node dist/dashboard.js",
+    "prepublishOnly": "npm run lint && npm run build && npm test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bhvbhushan/codeledger.git"
+  },
+  "homepage": "https://github.com/bhvbhushan/codeledger#readme",
+  "bugs": {
+    "url": "https://github.com/bhvbhushan/codeledger/issues"
+  },
+  "author": {
+    "name": "Bhavya Bhushan",
+    "url": "https://github.com/bhvbhushan"
   },
   "keywords": [
     "claude-code",
+    "claude-code-plugin",
+    "claude",
+    "anthropic",
+    "mcp",
+    "mcp-server",
     "analytics",
-    "tokens",
-    "cost",
-    "governance"
+    "token-usage",
+    "cost-tracking",
+    "ai-cost",
+    "llm-analytics",
+    "developer-tools",
+    "usage-tracking"
   ],
   "license": "MIT",
   "engines": {
