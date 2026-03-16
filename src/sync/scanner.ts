@@ -1,7 +1,8 @@
 import type Database from "better-sqlite3";
-import { readdirSync, statSync } from "fs";
-import { join } from "path";
+import { readdirSync, statSync, readFileSync, existsSync } from "fs";
+import { join, basename } from "path";
 import { parseSessionFile } from "../parser/session-parser.js";
+import { parseAgentFile, readAgentMeta } from "../parser/agent-parser.js";
 
 interface ScanResult {
   newFiles: number;
@@ -35,6 +36,7 @@ export async function scanForNewSessions(
       continue;
     }
 
+    // Phase A: Scan session JSONL files
     for (const file of files) {
       if (!file.endsWith(".jsonl")) continue;
 
@@ -79,6 +81,89 @@ export async function scanForNewSessions(
           fileStat.mtime.toISOString(),
           new Date().toISOString()
         );
+      }
+    }
+
+    // Phase B: Scan subagent directories
+    // Session directories are UUIDs containing a subagents/ folder
+    for (const entry of files) {
+      const sessionDir = join(projectPath, entry);
+      const sessionStat = statSync(sessionDir, { throwIfNoEntry: false });
+      if (!sessionStat?.isDirectory()) continue;
+
+      const subagentsDir = join(sessionDir, "subagents");
+      if (!existsSync(subagentsDir)) continue;
+
+      let agentFiles: string[];
+      try {
+        agentFiles = readdirSync(subagentsDir);
+      } catch {
+        continue;
+      }
+
+      for (const agentFile of agentFiles) {
+        if (!agentFile.endsWith(".jsonl")) continue;
+
+        const agentFilePath = join(subagentsDir, agentFile);
+        const agentFileStat = statSync(agentFilePath, {
+          throwIfNoEntry: false,
+        });
+        if (!agentFileStat) continue;
+
+        // Check sync_state
+        const syncRow = db
+          .prepare("SELECT * FROM sync_state WHERE file_path = ?")
+          .get(agentFilePath) as any;
+
+        if (syncRow && syncRow.file_size === agentFileStat.size) {
+          continue;
+        }
+
+        try {
+          // Extract agent ID from filename: agent-{id}.jsonl
+          const agentId = basename(agentFile, ".jsonl");
+
+          // The session ID is the directory name (UUID)
+          const sessionId = entry;
+
+          // Read companion meta.json
+          const metaPath = agentFilePath.replace(/\.jsonl$/, ".meta.json");
+          const meta = readAgentMeta(metaPath);
+          const agentType = meta?.agentType ?? null;
+
+          await parseAgentFile(
+            db,
+            agentFilePath,
+            agentId,
+            sessionId,
+            agentType
+          );
+
+          db.prepare(`
+            INSERT OR REPLACE INTO sync_state
+            (file_path, file_size, last_modified, last_parsed_at, lines_parsed, status)
+            VALUES (?, ?, ?, ?, 0, 'complete')
+          `).run(
+            agentFilePath,
+            agentFileStat.size,
+            agentFileStat.mtime.toISOString(),
+            new Date().toISOString()
+          );
+
+          newFiles++;
+        } catch (err) {
+          errors++;
+          db.prepare(`
+            INSERT OR REPLACE INTO sync_state
+            (file_path, file_size, last_modified, last_parsed_at, lines_parsed, status)
+            VALUES (?, ?, ?, ?, 0, 'error')
+          `).run(
+            agentFilePath,
+            agentFileStat.size,
+            agentFileStat.mtime.toISOString(),
+            new Date().toISOString()
+          );
+        }
       }
     }
   }

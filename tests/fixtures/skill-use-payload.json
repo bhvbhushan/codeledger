@@ -1,0 +1,13 @@
+{
+  "session_id": "sess-skill-001",
+  "tool_name": "Skill",
+  "tool_input": {
+    "skill": "superpowers:brainstorming",
+    "args": ""
+  },
+  "tool_response": "Skill invoked successfully",
+  "transcript_path": "/Users/test/.claude/projects/-tmp-myproject/sess-skill-001.jsonl",
+  "cwd": "/Users/test/myproject",
+  "permission_mode": "default",
+  "hook_event_name": "PostToolUse"
+}

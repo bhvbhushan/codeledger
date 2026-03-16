@@ -1,0 +1,12 @@
+{
+  "session_id": "parent-session-001",
+  "agent_id": "agent-abc123",
+  "agent_type": "general-purpose",
+  "agent_transcript_path": "FIXTURE_PATH_PLACEHOLDER",
+  "last_assistant_message": "The login form component has been created.",
+  "stop_hook_active": true,
+  "transcript_path": "/Users/test/.claude/projects/-tmp-myproject/parent-session-001.jsonl",
+  "cwd": "/Users/test/myproject",
+  "permission_mode": "default",
+  "hook_event_name": "SubagentStop"
+}
