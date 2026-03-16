@@ -13,7 +13,7 @@ Rules:
    - If agents were used, show agent count and top agents by cost
    - If skills were used, show skill invocations and estimated cost (mark as ~estimated)
 6. Keep it concise — 15-20 lines max.
-7. If cost seems high, mention they can ask for optimization tips.
+7. If cost seems high, call `cost_optimize` with period="month" and show the top recommendation.
 
 Do NOT show raw numbers without context. Always show cost in USD alongside token counts.
 Skill token estimates are always approximate — always label them as ~estimated.
