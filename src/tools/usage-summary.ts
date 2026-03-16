@@ -9,7 +9,8 @@ function periodToDateRange(period: string): { start: string; end: string } {
 
   switch (period) {
     case "today":
-      start = now.toISOString().split("T")[0] + "T00:00:00Z";
+      // Use local midnight (not UTC midnight) so "today" matches the user's timezone
+      start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
       break;
     case "week": {
       const d = new Date(now);

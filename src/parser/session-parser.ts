@@ -36,6 +36,9 @@ export async function parseSessionFile(
   const gitBranch = firstUser?.gitBranch ?? null;
   const actualCwd = firstUser?.cwd ?? cwd;
 
+  // Use earliest available timestamp from any line (never fall back to current time)
+  const firstLineTimestamp = (lines[0] as any)?.timestamp ?? null;
+
   // Extract and deduplicate assistant messages
   const rawAssistant = lines
     .filter((l) => l.type === "assistant")
@@ -43,6 +46,11 @@ export async function parseSessionFile(
     .filter((d): d is NonNullable<typeof d> => d !== null);
 
   const messages = deduplicateMessages(rawAssistant);
+
+  // Skip sessions with no assistant messages (empty/idle sessions, queue-only files)
+  if (messages.length === 0) {
+    return { sessionId, messageCount: 0, totalCostUsd: 0 };
+  }
 
   // Derive display name from cwd (last path segment)
   const displayName =
@@ -55,7 +63,7 @@ export async function parseSessionFile(
       projectPath,
       displayName,
       actualCwd,
-      messages[0]?.timestamp ?? new Date().toISOString()
+      messages[0]?.timestamp ?? firstLineTimestamp ?? new Date().toISOString()
     );
 
     // First pass: compute aggregates and per-message costs
@@ -113,7 +121,7 @@ export async function parseSessionFile(
       0
     );
 
-    const startedAt = messages[0]?.timestamp ?? new Date().toISOString();
+    const startedAt = messages[0]?.timestamp ?? firstLineTimestamp ?? new Date().toISOString();
     const endedAt = messages[messages.length - 1]?.timestamp ?? null;
 
     // Insert session first (token_usage has FK to sessions)

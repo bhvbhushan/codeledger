@@ -12,7 +12,7 @@ export function queryProjectUsage(
   let start: string;
   switch (period) {
     case "today":
-      start = now.toISOString().split("T")[0] + "T00:00:00Z";
+      start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
       break;
     case "week": {
       const d = new Date(now);
