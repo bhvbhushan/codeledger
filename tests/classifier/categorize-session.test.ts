@@ -68,6 +68,26 @@ describe("categorizeSession", () => {
   it("returns mixed for empty tool profile", () => {
     expect(categorizeSession({})).toBe("mixed");
   });
+
+  it("ignores framework noise tools in classification", () => {
+    // Real scenario: Bash-heavy session diluted by TaskUpdate, Skill, ToolSearch
+    expect(categorizeSession({
+      Bash: 1107, Read: 419, Edit: 204, Write: 107, Agent: 166,
+      TaskUpdate: 260, Skill: 50, ToolSearch: 13, TaskCreate: 13, TaskList: 13,
+    })).toBe("debugging"); // Bash > 20% of signal tools + gen > 0
+
+    // Exploration diluted by mcp__ tools
+    expect(categorizeSession({
+      Read: 35, Grep: 3, Glob: 7,
+      "mcp__supabase-readonly__execute_sql": 56, TaskUpdate: 9, TaskCreate: 9,
+    })).toBe("review"); // Read-heavy with no Write/Edit
+  });
+
+  it("returns mixed when only noise tools exist (no signal)", () => {
+    expect(categorizeSession({
+      TaskUpdate: 100, TaskCreate: 20, Skill: 10,
+    })).toBe("mixed");
+  });
 });
 
 describe("classifyAndUpdateSession", () => {

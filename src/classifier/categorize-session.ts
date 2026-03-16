@@ -13,11 +13,18 @@ interface ToolProfile {
   [toolName: string]: number;
 }
 
-export function categorizeSession(toolCalls: ToolProfile): SessionCategory {
-  const total = Object.values(toolCalls).reduce((s, n) => s + n, 0);
-  if (total === 0) return "mixed";
+// Signal tools — tools that indicate what kind of work the session is doing.
+// Framework/system tools (TaskUpdate, TaskCreate, Skill, ToolSearch, WebSearch,
+// mcp__*, etc.) are noise that dilutes classification ratios.
+const SIGNAL_TOOLS = new Set([
+  "Read", "Write", "Edit", "NotebookEdit",
+  "Bash",
+  "Grep", "Glob",
+  "Agent",
+]);
 
-  // Compute ratios for tool groups
+export function categorizeSession(toolCalls: ToolProfile): SessionCategory {
+  // Only count signal tools for classification — ignore framework noise
   const gen =
     (toolCalls["Write"] ?? 0) +
     (toolCalls["Edit"] ?? 0) +
@@ -28,6 +35,9 @@ export function categorizeSession(toolCalls: ToolProfile): SessionCategory {
     (toolCalls["Glob"] ?? 0);
   const bash = toolCalls["Bash"] ?? 0;
   const agent = toolCalls["Agent"] ?? 0;
+
+  const total = gen + read + bash + agent;
+  if (total === 0) return "mixed";
 
   const genRatio = gen / total;
   const readRatio = read / total;
