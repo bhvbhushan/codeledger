@@ -1,0 +1,16 @@
+{
+  "description": "CodeLedger usage tracking hooks",
+  "hooks": {
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/dist/hooks/on-session-end.js",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "session_id": "test-session-001",
+  "transcript_path": "FIXTURE_PATH_PLACEHOLDER",
+  "cwd": "/Users/test/myproject",
+  "permission_mode": "default",
+  "hook_event_name": "SessionEnd",
+  "reason": "exit"
+}
