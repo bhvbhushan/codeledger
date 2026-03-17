@@ -36,17 +36,21 @@ No existing tool answers these questions. CodeLedger does.
 
 ## Quick Start
 
-### Install as Claude Code plugin
+### Install from npm
 
 ```bash
-# Add the MCP server
-claude mcp add codeledger-server node -- $(npm root -g)/codeledger/dist/index.js
-
-# Or install from source
-git clone https://github.com/bhvbhushan/codeledger.git
-cd codeledger && npm install && npm run build
-claude mcp add codeledger-server node -- $(pwd)/dist/index.js
+npm install -g codeledger
 ```
+
+### Run Claude Code with the plugin
+
+```bash
+claude --plugin-dir $(npm root -g)/codeledger
+```
+
+This loads **everything** — 6 MCP tools, 4 hooks (real-time tracking), and slash commands.
+
+> **Plugin marketplace:** CodeLedger has been submitted to the official Claude Code plugin directory. Once approved, installation will be simply `/plugin install codeledger`.
 
 ### Start the dashboard
 
@@ -55,6 +59,14 @@ npx codeledger dashboard
 ```
 
 Opens a local dashboard at `http://localhost:4321` with charts, tables, and drill-downs.
+
+### Install from source (development)
+
+```bash
+git clone https://github.com/bhvbhushan/codeledger.git
+cd codeledger && npm install && npm run build
+claude --plugin-dir .
+```
 
 ## Features
 
