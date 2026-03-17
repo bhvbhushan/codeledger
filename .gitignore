@@ -9,5 +9,11 @@ dist/
 docs/
 **/CLAUDE.md
 
+# Raw assets (large files, compress before committing)
+assets/
+
 # Local Claude Code config
 .claude/
+
+# Content drafts
+content/

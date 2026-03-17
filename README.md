@@ -9,7 +9,11 @@
 
 CodeLedger is a Claude Code plugin that tracks where your AI coding tokens go — per-project, per-agent, per-skill — and separates your actual coding work from background plugin overhead. Ask questions conversationally via MCP tools, or browse the local dashboard.
 
-<video src="https://github.com/bhvbhushan/codeledger/releases/download/v0.2.4/codeledger.mp4" autoplay loop muted playsinline width="100%"></video>
+### Setup & MCP Tools
+![CodeLedger Setup](demo/codeledger-setup.gif)
+
+### Dashboard
+![CodeLedger Dashboard](demo/codeledger-dashboard.gif)
 
 ## Why CodeLedger?
 
