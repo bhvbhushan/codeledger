@@ -41,7 +41,7 @@ async function main() {
   // Create MCP server
   const server = new McpServer({
     name: "codeledger",
-    version: "0.1.0",
+    version: "0.2.0",
   });
 
   // Register Phase A tools
