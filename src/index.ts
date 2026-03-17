@@ -1,5 +1,8 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+const pkg = require("../package.json");
 import { createConnection, getDefaultDbPath } from "./db/connection.js";
 import { runMigrations } from "./db/migrate.js";
 import { seedPricing } from "./db/pricing.js";
@@ -41,7 +44,7 @@ async function main() {
   // Create MCP server
   const server = new McpServer({
     name: "codeledger",
-    version: "0.2.2",
+    version: pkg.version,
   });
 
   // Register Phase A tools

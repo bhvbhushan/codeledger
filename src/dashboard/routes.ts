@@ -2,6 +2,7 @@ import type { Hono } from "hono";
 import type Database from "better-sqlite3";
 import { generateRecommendations } from "../tools/cost-optimize.js";
 import { querySkillUsage } from "../tools/skill-usage.js";
+import { lookupPricing } from "../db/pricing.js";
 import { periodToStart } from "../utils/period.js";
 
 export function registerApiRoutes(app: Hono, db: Database.Database): void {
@@ -36,6 +37,26 @@ export function registerApiRoutes(app: Hono, db: Database.Database): void {
       )
       .get(start) as Record<string, number>;
 
+    // Get dominant model pricing for breakdown display
+    const dominantModel = db.prepare(`
+      SELECT primary_model, COUNT(*) as cnt FROM sessions
+      WHERE started_at >= ? AND primary_model IS NOT NULL
+      GROUP BY primary_model ORDER BY cnt DESC LIMIT 1
+    `).get(start) as { primary_model: string } | undefined;
+
+    let pricing = null;
+    if (dominantModel) {
+      const p = lookupPricing(db, dominantModel.primary_model);
+      if (p) {
+        pricing = {
+          input: p.input_per_mtok,
+          output: p.output_per_mtok,
+          cacheCreate: p.cache_create_per_mtok ?? 0,
+          cacheRead: p.cache_read_per_mtok ?? 0,
+        };
+      }
+    }
+
     return c.json({
       totalCost: totals.total_cost,
       totalInput: totals.total_input,
@@ -45,6 +66,7 @@ export function registerApiRoutes(app: Hono, db: Database.Database): void {
       sessionCount: totals.session_count,
       overheadCost: overhead.overhead_cost,
       userCost: totals.total_cost - overhead.overhead_cost,
+      pricing,
     });
   });
 

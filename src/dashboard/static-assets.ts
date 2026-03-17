@@ -349,12 +349,13 @@ async function loadOverview() {
     : '';
   document.getElementById('kpi-sessions').textContent = summary.sessionCount;
 
-  // Cost breakdown bar
+  // Cost breakdown bar — rates from API (falls back to Opus 4.6 defaults)
+  var pr = summary.pricing || { input: 5.0, output: 25.0, cacheCreate: 6.25, cacheRead: 0.50 };
   var breakdownTypes = [
-    { name: 'Cache read', tokens: summary.totalCacheRead || 0, color: '#f72585', rate: 0.50, cost: 0 },
-    { name: 'Cache write', tokens: summary.totalCacheCreate || 0, color: '#7209b7', rate: 6.25, cost: 0 },
-    { name: 'Output', tokens: summary.totalOutput || 0, color: '#4361ee', rate: 25.0, cost: 0 },
-    { name: 'Input', tokens: summary.totalInput || 0, color: '#4cc9f0', rate: 5.0, cost: 0 },
+    { name: 'Cache read', tokens: summary.totalCacheRead || 0, color: '#f72585', rate: pr.cacheRead, cost: 0 },
+    { name: 'Cache write', tokens: summary.totalCacheCreate || 0, color: '#7209b7', rate: pr.cacheCreate, cost: 0 },
+    { name: 'Output', tokens: summary.totalOutput || 0, color: '#4361ee', rate: pr.output, cost: 0 },
+    { name: 'Input', tokens: summary.totalInput || 0, color: '#4cc9f0', rate: pr.input, cost: 0 },
   ];
   breakdownTypes.forEach(function(t) { t.cost = t.tokens * t.rate / 1000000; });
   var computedTotal = breakdownTypes.reduce(function(s, t) { return s + t.cost; }, 0) || 1;
