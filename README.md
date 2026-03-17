@@ -61,7 +61,11 @@ for /f "delims=" %i in ('npm root -g') do claude --plugin-dir "%i\codeledger"
 
 This loads **everything** — 6 MCP tools, 4 hooks (real-time tracking), and slash commands.
 
-> **Plugin marketplace:** CodeLedger has been submitted to the official Claude Code plugin directory. Once approved, installation will be simply `/plugin install codeledger`.
+> **Anthropic Plugin Marketplace:** CodeLedger has been submitted to the [official Claude Code plugin directory](https://github.com/anthropics/claude-plugins-official) and is **pending approval**. Once approved, installation will be simply:
+> ```
+> /plugin install codeledger
+> ```
+> Until then, use the npm install method above.
 
 ### Start the dashboard
 
