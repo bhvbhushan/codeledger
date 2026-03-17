@@ -155,6 +155,10 @@ export function registerApiRoutes(app: Hono, db: Database.Database): void {
         p.id,
         p.display_name as name,
         COALESCE(SUM(s.total_cost_usd), 0) as total_cost,
+        COALESCE(SUM(s.total_input_tokens), 0) as input_tokens,
+        COALESCE(SUM(s.total_output_tokens), 0) as output_tokens,
+        COALESCE(SUM(s.total_cache_create_tokens), 0) as cache_create_tokens,
+        COALESCE(SUM(s.total_cache_read_tokens), 0) as cache_read_tokens,
         COUNT(s.id) as session_count,
         MAX(s.started_at) as last_active
       FROM projects p
@@ -222,6 +226,10 @@ export function registerApiRoutes(app: Hono, db: Database.Database): void {
         s.ended_at,
         s.primary_model,
         s.total_cost_usd,
+        s.total_input_tokens,
+        s.total_output_tokens,
+        s.total_cache_create_tokens,
+        s.total_cache_read_tokens,
         s.message_count,
         s.agent_count,
         s.end_reason,
