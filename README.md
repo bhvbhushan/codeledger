@@ -44,8 +44,19 @@ npm install -g codeledger
 
 ### Run Claude Code with the plugin
 
+**macOS / Linux:**
 ```bash
 claude --plugin-dir $(npm root -g)/codeledger
+```
+
+**Windows (PowerShell):**
+```powershell
+claude --plugin-dir "$(npm root -g)\codeledger"
+```
+
+**Windows (CMD):**
+```cmd
+for /f "delims=" %i in ('npm root -g') do claude --plugin-dir "%i\codeledger"
 ```
 
 This loads **everything** — 6 MCP tools, 4 hooks (real-time tracking), and slash commands.
