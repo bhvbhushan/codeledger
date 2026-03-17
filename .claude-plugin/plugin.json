@@ -1,6 +1,6 @@
 {
   "name": "codeledger",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Token-level cost intelligence for Claude Code",
   "author": {
     "name": "Bhavya Bhushan"
