@@ -7,7 +7,7 @@ dist/
 
 # Planning docs — internal only
 docs/
-CLAUDE.md
+**/CLAUDE.md
 
 # Local Claude Code config
 .claude/
