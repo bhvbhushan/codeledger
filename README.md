@@ -9,6 +9,8 @@
 
 CodeLedger is a Claude Code plugin that tracks where your AI coding tokens go — per-project, per-agent, per-skill — and separates your actual coding work from background plugin overhead. Ask questions conversationally via MCP tools, or browse the local dashboard.
 
+<video src="https://github.com/bhvbhushan/codeledger/releases/download/v0.2.4/codeledger.mp4" autoplay loop muted playsinline width="100%"></video>
+
 ## Why CodeLedger?
 
 Running Claude Code agents can burn through tokens fast. A single session with 49 parallel subagents can cost $8,000-$15,000. But you have zero visibility into:
