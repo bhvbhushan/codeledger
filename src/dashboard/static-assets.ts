@@ -351,10 +351,10 @@ async function loadOverview() {
 
   // Cost breakdown bar
   var breakdownTypes = [
-    { name: 'Cache read', tokens: summary.totalCacheRead || 0, color: '#f72585', rate: 1.50, cost: 0 },
-    { name: 'Cache write', tokens: summary.totalCacheCreate || 0, color: '#7209b7', rate: 18.75, cost: 0 },
-    { name: 'Output', tokens: summary.totalOutput || 0, color: '#4361ee', rate: 75.0, cost: 0 },
-    { name: 'Input', tokens: summary.totalInput || 0, color: '#4cc9f0', rate: 15.0, cost: 0 },
+    { name: 'Cache read', tokens: summary.totalCacheRead || 0, color: '#f72585', rate: 0.50, cost: 0 },
+    { name: 'Cache write', tokens: summary.totalCacheCreate || 0, color: '#7209b7', rate: 6.25, cost: 0 },
+    { name: 'Output', tokens: summary.totalOutput || 0, color: '#4361ee', rate: 25.0, cost: 0 },
+    { name: 'Input', tokens: summary.totalInput || 0, color: '#4cc9f0', rate: 5.0, cost: 0 },
   ];
   breakdownTypes.forEach(function(t) { t.cost = t.tokens * t.rate / 1000000; });
   var computedTotal = breakdownTypes.reduce(function(s, t) { return s + t.cost; }, 0) || 1;
