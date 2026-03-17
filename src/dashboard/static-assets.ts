@@ -48,6 +48,12 @@ export function getStaticHtml(): string {
         </div>
       </div>
 
+      <div class="breakdown-bar-container">
+        <div class="chart-title">Cost Breakdown by Token Type</div>
+        <div class="breakdown-bar" id="breakdown-bar"></div>
+        <div class="breakdown-legend" id="breakdown-legend"></div>
+      </div>
+
       <div class="chart-grid chart-grid-3">
         <div class="chart-card wide">
           <div class="chart-title">Daily Spend (user vs overhead)</div>
@@ -230,6 +236,13 @@ tbody tr { cursor: default; }
 
 .disclaimer { font-size: 11px; color: var(--text-dim); margin-top: 12px; font-style: italic; }
 
+.breakdown-bar-container { background: var(--surface); padding: 16px; border-radius: 8px; margin-bottom: 20px; }
+.breakdown-bar { display: flex; height: 32px; border-radius: 6px; overflow: hidden; margin-bottom: 8px; }
+.breakdown-bar > div { display: flex; align-items: center; justify-content: center; font-size: 11px; color: white; font-weight: 600; min-width: 2px; }
+.breakdown-legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; }
+.breakdown-legend > div { display: flex; align-items: center; gap: 4px; }
+.breakdown-legend .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+
 .rec-card { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 12px; }
 .rec-card h4 { color: var(--text); margin-bottom: 8px; font-size: 14px; }
 .rec-evidence { color: var(--text-dim); font-size: 12px; margin-bottom: 6px; }
@@ -335,6 +348,29 @@ async function loadOverview() {
     ? Math.round(summary.overheadCost / summary.totalCost * 100) + '% of total'
     : '';
   document.getElementById('kpi-sessions').textContent = summary.sessionCount;
+
+  // Cost breakdown bar
+  var breakdownTypes = [
+    { name: 'Cache read', tokens: summary.totalCacheRead || 0, color: '#f72585', rate: 1.50, cost: 0 },
+    { name: 'Cache write', tokens: summary.totalCacheCreate || 0, color: '#7209b7', rate: 18.75, cost: 0 },
+    { name: 'Output', tokens: summary.totalOutput || 0, color: '#4361ee', rate: 75.0, cost: 0 },
+    { name: 'Input', tokens: summary.totalInput || 0, color: '#4cc9f0', rate: 15.0, cost: 0 },
+  ];
+  breakdownTypes.forEach(function(t) { t.cost = t.tokens * t.rate / 1000000; });
+  var computedTotal = breakdownTypes.reduce(function(s, t) { return s + t.cost; }, 0) || 1;
+
+  var bar = document.getElementById('breakdown-bar');
+  bar.innerHTML = breakdownTypes.filter(function(t) { return t.cost > 0; }).map(function(t) {
+    var pct = Math.max(1, Math.round(t.cost / computedTotal * 100));
+    return '<div style="width:' + pct + '%;background:' + t.color + '">' + (pct >= 8 ? pct + '%' : '') + '</div>';
+  }).join('');
+
+  var legend = document.getElementById('breakdown-legend');
+  legend.innerHTML = breakdownTypes.map(function(t) {
+    var fmtT = t.tokens >= 1000000 ? (t.tokens/1000000).toFixed(1) + 'M' : t.tokens >= 1000 ? (t.tokens/1000).toFixed(1) + 'K' : t.tokens;
+    var pct = Math.round(t.cost / computedTotal * 100);
+    return '<div><span class="dot" style="background:' + t.color + '"></span>' + t.name + ': ' + fmtT + ' tokens \\u2014 $' + t.cost.toFixed(2) + ' (' + pct + '%)</div>';
+  }).join('');
 
   // Daily chart
   if (dailyChart) dailyChart.destroy();

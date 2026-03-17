@@ -17,6 +17,8 @@ export function registerApiRoutes(app: Hono, db: Database.Database): void {
         COALESCE(SUM(s.total_cost_usd), 0) as total_cost,
         COALESCE(SUM(s.total_input_tokens), 0) as total_input,
         COALESCE(SUM(s.total_output_tokens), 0) as total_output,
+        COALESCE(SUM(s.total_cache_create_tokens), 0) as cache_create,
+        COALESCE(SUM(s.total_cache_read_tokens), 0) as cache_read,
         COUNT(*) as session_count
       FROM sessions s
       WHERE s.started_at >= ?
@@ -38,6 +40,8 @@ export function registerApiRoutes(app: Hono, db: Database.Database): void {
       totalCost: totals.total_cost,
       totalInput: totals.total_input,
       totalOutput: totals.total_output,
+      totalCacheCreate: totals.cache_create,
+      totalCacheRead: totals.cache_read,
       sessionCount: totals.session_count,
       overheadCost: overhead.overhead_cost,
       userCost: totals.total_cost - overhead.overhead_cost,
