@@ -9,6 +9,8 @@
 
 CodeLedger is a Claude Code plugin that tracks where your AI coding tokens go — per-project, per-agent, per-skill — and separates your actual coding work from background plugin overhead. Ask questions conversationally via MCP tools, or browse the local dashboard.
 
+<video src="https://github.com/bhvbhushan/codeledger/releases/download/v0.2.4/codeledger.mp4" autoplay loop muted playsinline width="100%"></video>
+
 ## Why CodeLedger?
 
 Running Claude Code agents can burn through tokens fast. A single session with 49 parallel subagents can cost $8,000-$15,000. But you have zero visibility into:
@@ -61,7 +63,11 @@ for /f "delims=" %i in ('npm root -g') do claude --plugin-dir "%i\codeledger"
 
 This loads **everything** — 6 MCP tools, 4 hooks (real-time tracking), and slash commands.
 
-> **Plugin marketplace:** CodeLedger has been submitted to the official Claude Code plugin directory. Once approved, installation will be simply `/plugin install codeledger`.
+> **Anthropic Plugin Marketplace:** CodeLedger has been submitted to the [official Claude Code plugin directory](https://github.com/anthropics/claude-plugins-official) and is **pending approval**. Once approved, installation will be simply:
+> ```
+> /plugin install codeledger
+> ```
+> Until then, use the npm install method above.
 
 ### Start the dashboard
 
