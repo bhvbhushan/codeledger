@@ -52,7 +52,7 @@ jobs:
         if: steps.version-check.outputs.skip == 'false'
         run: npm run build
 
-      - name: Publish to npm
+      - name: Publish package to npm
         if: steps.version-check.outputs.skip == 'false'
         run: npm publish --provenance --access public
 
