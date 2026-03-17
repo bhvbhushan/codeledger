@@ -19,6 +19,9 @@ jobs:
           node-version: 22
           registry-url: https://registry.npmjs.org
 
+      - name: Install latest npm (OIDC requires >= 11.5.1)
+        run: npm install -g npm@latest
+
       - name: Check if version is already published
         id: version-check
         run: |
@@ -52,8 +55,6 @@ jobs:
       - name: Publish to npm
         if: steps.version-check.outputs.skip == 'false'
         run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Create GitHub Release
         if: steps.version-check.outputs.skip == 'false'
