@@ -8,6 +8,7 @@ export default defineConfig({
     "hooks/on-session-end": "src/hooks/on-session-end.ts",
     "hooks/on-subagent-stop": "src/hooks/on-subagent-stop.ts",
     "hooks/on-skill-use": "src/hooks/on-skill-use.ts",
+    "hooks/on-stop": "src/hooks/on-stop.ts",
   },
   format: ["esm"],
   target: "node18",
