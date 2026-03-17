@@ -2,11 +2,14 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type Database from "better-sqlite3";
 import { z } from "zod";
 import { periodToStart } from "../utils/period.js";
+import { lookupPricing } from "../db/pricing.js";
 
 interface UsageSummary {
   totalCostUsd: number;
   totalInputTokens: number;
   totalOutputTokens: number;
+  totalCacheCreateTokens: number;
+  totalCacheReadTokens: number;
   sessionCount: number;
   topProject: string | null;
   modelDistribution: { model: string; cost: number; pct: number }[];
@@ -35,6 +38,8 @@ export function queryUsageSummary(
       COALESCE(SUM(s.total_cost_usd), 0) as cost,
       COALESCE(SUM(s.total_input_tokens), 0) as input_tok,
       COALESCE(SUM(s.total_output_tokens), 0) as output_tok,
+      COALESCE(SUM(s.total_cache_create_tokens), 0) as cache_create_tok,
+      COALESCE(SUM(s.total_cache_read_tokens), 0) as cache_read_tok,
       COUNT(*) as session_count
     FROM sessions s
     LEFT JOIN projects p ON s.project_id = p.id
@@ -45,6 +50,8 @@ export function queryUsageSummary(
     cost: number;
     input_tok: number;
     output_tok: number;
+    cache_create_tok: number;
+    cache_read_tok: number;
     session_count: number;
   } | undefined;
 
@@ -103,6 +110,8 @@ export function queryUsageSummary(
     totalCostUsd: totalCost,
     totalInputTokens: totals?.input_tok ?? 0,
     totalOutputTokens: totals?.output_tok ?? 0,
+    totalCacheCreateTokens: totals?.cache_create_tok ?? 0,
+    totalCacheReadTokens: totals?.cache_read_tok ?? 0,
     sessionCount: totals?.session_count ?? 0,
     topProject: topProj?.display_name ?? null,
     modelDistribution,
@@ -126,19 +135,59 @@ export function registerUsageSummary(
     async ({ period, project }) => {
       const s = queryUsageSummary(db, period, project);
 
+      const fmtTokens = (n: number): string => {
+        if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M";
+        if (n >= 1_000) return (n / 1_000).toFixed(1) + "K";
+        return n.toString();
+      };
+
       const lines = [
         `## Usage Summary (${period})`,
-        `**Total Cost:** $${s.totalCostUsd.toFixed(2)}`,
-        `**Sessions:** ${s.sessionCount}`,
-        `**Tokens:** ${s.totalInputTokens.toLocaleString()} input, ${s.totalOutputTokens.toLocaleString()} output`,
+        `**Total Cost:** $${s.totalCostUsd.toFixed(2)} | **Sessions:** ${s.sessionCount}`,
         s.topProject ? `**Top Project:** ${s.topProject}` : "",
         s.overheadCostUsd > 0 ? `**Background overhead:** $${s.overheadCostUsd.toFixed(2)} (plugin observers, system agents)` : "",
+      ];
+
+      // Cost breakdown by token type
+      const dominantModel = s.modelDistribution[0]?.model ?? "claude-opus-4-6";
+      const pricing = lookupPricing(db, dominantModel);
+      if (pricing) {
+        const inputCost = s.totalInputTokens * pricing.input_per_mtok / 1_000_000;
+        const outputCost = s.totalOutputTokens * pricing.output_per_mtok / 1_000_000;
+        const cacheCreateCost = s.totalCacheCreateTokens * (pricing.cache_create_per_mtok ?? 0) / 1_000_000;
+        const cacheReadCost = s.totalCacheReadTokens * (pricing.cache_read_per_mtok ?? 0) / 1_000_000;
+
+        const breakdown = [
+          { label: "Cache read", tokens: s.totalCacheReadTokens, cost: cacheReadCost },
+          { label: "Cache write", tokens: s.totalCacheCreateTokens, cost: cacheCreateCost },
+          { label: "Output", tokens: s.totalOutputTokens, cost: outputCost },
+          { label: "Input", tokens: s.totalInputTokens, cost: inputCost },
+        ]
+          .sort((a, b) => b.cost - a.cost)
+          .filter((b) => b.tokens > 0);
+
+        const computedTotal = breakdown.reduce((sum, b) => sum + b.cost, 0) || 1;
+
+        lines.push("", "**Cost Breakdown:**");
+        for (const b of breakdown) {
+          const pct = Math.round((b.cost / computedTotal) * 100);
+          const pctStr = pct < 1 ? "<1" : String(pct);
+          lines.push(`- ${b.label}: ${fmtTokens(b.tokens)} tokens — ~$${b.cost.toFixed(2)} (${pctStr}%)`);
+        }
+      } else {
+        lines.push(
+          "",
+          `**Tokens:** ${fmtTokens(s.totalInputTokens)} input, ${fmtTokens(s.totalOutputTokens)} output, ${fmtTokens(s.totalCacheCreateTokens)} cache write, ${fmtTokens(s.totalCacheReadTokens)} cache read`
+        );
+      }
+
+      lines.push(
         "",
         "**Model Distribution:**",
         ...s.modelDistribution.map(
           (m) => `- ${m.model}: $${m.cost.toFixed(2)} (${m.pct}%)`
-        ),
-      ];
+        )
+      );
 
       return {
         content: [{ type: "text" as const, text: lines.filter(Boolean).join("\n") }],
