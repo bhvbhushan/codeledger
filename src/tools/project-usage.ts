@@ -2,12 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type Database from "better-sqlite3";
 import { z } from "zod";
 import { periodToStart } from "../utils/period.js";
-
-function fmtTokens(n: number): string {
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M";
-  if (n >= 1_000) return (n / 1_000).toFixed(1) + "K";
-  return n.toString();
-}
+import { fmtTokens } from "../utils/format.js";
 
 export function queryProjectUsage(
   db: Database.Database,

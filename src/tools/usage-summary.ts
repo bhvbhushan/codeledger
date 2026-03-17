@@ -3,6 +3,7 @@ import type Database from "better-sqlite3";
 import { z } from "zod";
 import { periodToStart } from "../utils/period.js";
 import { lookupPricing } from "../db/pricing.js";
+import { fmtTokens } from "../utils/format.js";
 
 interface UsageSummary {
   totalCostUsd: number;
@@ -135,11 +136,7 @@ export function registerUsageSummary(
     async ({ period, project }) => {
       const s = queryUsageSummary(db, period, project);
 
-      const fmtTokens = (n: number): string => {
-        if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M";
-        if (n >= 1_000) return (n / 1_000).toFixed(1) + "K";
-        return n.toString();
-      };
+
 
       const lines = [
         `## Usage Summary (${period})`,

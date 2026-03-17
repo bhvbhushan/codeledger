@@ -24,7 +24,8 @@ export function generateRecommendations(
     .prepare(
       `
     SELECT COUNT(*) as count, SUM(s.total_cost_usd) as cost,
-           SUM(s.total_input_tokens) as input_tok, SUM(s.total_output_tokens) as output_tok
+           SUM(s.total_input_tokens) as input_tok, SUM(s.total_output_tokens) as output_tok,
+           SUM(s.total_cache_create_tokens) as cache_create_tok, SUM(s.total_cache_read_tokens) as cache_read_tok
     FROM sessions s
     WHERE s.started_at >= ? AND s.category = 'exploration' AND s.primary_model LIKE '%opus%'
   `
@@ -34,7 +35,9 @@ export function generateRecommendations(
   if (explorationOpus.count > 0 && sonnetPricing) {
     const hypothetical =
       (explorationOpus.input_tok * sonnetPricing.input_per_mtok) / 1_000_000 +
-      (explorationOpus.output_tok * sonnetPricing.output_per_mtok) / 1_000_000;
+      (explorationOpus.output_tok * sonnetPricing.output_per_mtok) / 1_000_000 +
+      ((explorationOpus.cache_create_tok ?? 0) * (sonnetPricing.cache_create_per_mtok ?? 0)) / 1_000_000 +
+      ((explorationOpus.cache_read_tok ?? 0) * (sonnetPricing.cache_read_per_mtok ?? 0)) / 1_000_000;
     const savings = explorationOpus.cost - hypothetical;
     if (savings > 0.5) {
       recommendations.push({
@@ -52,7 +55,8 @@ export function generateRecommendations(
     .prepare(
       `
     SELECT COUNT(*) as count, SUM(s.total_cost_usd) as cost,
-           SUM(s.total_input_tokens) as input_tok, SUM(s.total_output_tokens) as output_tok
+           SUM(s.total_input_tokens) as input_tok, SUM(s.total_output_tokens) as output_tok,
+           SUM(s.total_cache_create_tokens) as cache_create_tok, SUM(s.total_cache_read_tokens) as cache_read_tok
     FROM sessions s
     WHERE s.started_at >= ? AND s.category = 'review' AND s.primary_model LIKE '%opus%'
   `
@@ -62,7 +66,9 @@ export function generateRecommendations(
   if (reviewOpus.count > 0 && sonnetPricing) {
     const hypothetical =
       (reviewOpus.input_tok * sonnetPricing.input_per_mtok) / 1_000_000 +
-      (reviewOpus.output_tok * sonnetPricing.output_per_mtok) / 1_000_000;
+      (reviewOpus.output_tok * sonnetPricing.output_per_mtok) / 1_000_000 +
+      ((reviewOpus.cache_create_tok ?? 0) * (sonnetPricing.cache_create_per_mtok ?? 0)) / 1_000_000 +
+      ((reviewOpus.cache_read_tok ?? 0) * (sonnetPricing.cache_read_per_mtok ?? 0)) / 1_000_000;
     const savings = reviewOpus.cost - hypothetical;
     if (savings > 0.5) {
       recommendations.push({
@@ -108,7 +114,8 @@ export function generateRecommendations(
     .prepare(
       `
     SELECT COUNT(*) as count, SUM(s.total_cost_usd) as cost,
-           SUM(s.total_input_tokens) as input_tok, SUM(s.total_output_tokens) as output_tok
+           SUM(s.total_input_tokens) as input_tok, SUM(s.total_output_tokens) as output_tok,
+           SUM(s.total_cache_create_tokens) as cache_create_tok, SUM(s.total_cache_read_tokens) as cache_read_tok
     FROM sessions s
     WHERE s.started_at >= ? AND s.category = 'devops' AND s.primary_model LIKE '%opus%'
   `
@@ -118,7 +125,9 @@ export function generateRecommendations(
   if (devopsOpus.count > 0 && sonnetPricing) {
     const hypothetical =
       (devopsOpus.input_tok * sonnetPricing.input_per_mtok) / 1_000_000 +
-      (devopsOpus.output_tok * sonnetPricing.output_per_mtok) / 1_000_000;
+      (devopsOpus.output_tok * sonnetPricing.output_per_mtok) / 1_000_000 +
+      ((devopsOpus.cache_create_tok ?? 0) * (sonnetPricing.cache_create_per_mtok ?? 0)) / 1_000_000 +
+      ((devopsOpus.cache_read_tok ?? 0) * (sonnetPricing.cache_read_per_mtok ?? 0)) / 1_000_000;
     const savings = devopsOpus.cost - hypothetical;
     if (savings > 0.5) {
       recommendations.push({
