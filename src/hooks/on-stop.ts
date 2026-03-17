@@ -5,8 +5,10 @@ import {
   deduplicateMessages,
 } from "../parser/message-extractor.js";
 import { calculateCost } from "../db/pricing.js";
-import { upsertProject, insertSession, insertTokenUsage } from "../db/queries.js";
+import { upsertProject, insertTokenUsage } from "../db/queries.js";
 import { dirname, basename } from "path";
+import { statSync } from "fs";
+import type Database from "better-sqlite3";
 
 /**
  * Lightweight real-time session tracking.
@@ -14,7 +16,7 @@ import { dirname, basename } from "path";
  * Called on every Claude response (Stop event) DURING the session.
  * Only writes to dedup-safe tables:
  *   - token_usage: INSERT OR IGNORE (UNIQUE constraint handles dedup)
- *   - sessions: INSERT OR REPLACE (latest totals overwrite)
+ *   - sessions: INSERT ON CONFLICT UPDATE (preserves end_reason + category)
  *   - projects: ON CONFLICT upsert (idempotent)
  *
  * Does NOT touch accumulation-based tables (daily_summaries, tool_calls)
@@ -43,6 +45,18 @@ export async function handleStop(
   const db = initHookDb(dbPath);
 
   try {
+    // Check if file has changed since last parse — skip if unchanged
+    const fileStat = statSync(payload.transcript_path, { throwIfNoEntry: false });
+    if (!fileStat) return;
+
+    const syncRow = db
+      .prepare("SELECT file_size FROM sync_state WHERE file_path = ?")
+      .get(payload.transcript_path) as { file_size: number } | undefined;
+
+    if (syncRow && syncRow.file_size === fileStat.size) {
+      return; // File unchanged since last parse — nothing new to process
+    }
+
     const lines = await readJsonlLines(payload.transcript_path);
 
     // Extract session metadata from first user line
@@ -126,13 +140,13 @@ export async function handleStop(
       const startedAt = messages[0]?.timestamp ?? firstLineTimestamp ?? new Date().toISOString();
       const endedAt = messages[messages.length - 1]?.timestamp ?? null;
 
-      // Upsert session — INSERT OR REPLACE ensures latest totals win
-      insertSession(db, {
+      // Upsert session — INSERT ON CONFLICT preserves end_reason and category
+      // (SessionEnd sets these; we must not overwrite them)
+      upsertSessionLive(db, {
         id: sessionId,
         projectId,
         startedAt,
         endedAt,
-        endReason: null, // Only SessionEnd sets this
         primaryModel,
         claudeVersion,
         gitBranch,
@@ -161,10 +175,75 @@ export async function handleStop(
           timestamp: msg.timestamp,
         });
       }
+
+      // Track file size so next Stop can skip if unchanged
+      db.prepare(`
+        INSERT OR REPLACE INTO sync_state
+        (file_path, file_size, last_modified, last_parsed_at, lines_parsed, status)
+        VALUES (?, ?, ?, ?, ?, 'partial')
+      `).run(
+        payload.transcript_path,
+        fileStat.size,
+        fileStat.mtime.toISOString(),
+        new Date().toISOString(),
+        messages.length,
+      );
     })();
   } finally {
     db.close();
   }
+}
+
+/**
+ * Insert or update a session WITHOUT overwriting end_reason or category.
+ * Unlike insertSession (INSERT OR REPLACE which deletes + reinserts),
+ * this uses INSERT ON CONFLICT DO UPDATE to preserve fields set by SessionEnd.
+ */
+function upsertSessionLive(
+  db: Database.Database,
+  session: {
+    id: string;
+    projectId: number;
+    startedAt: string;
+    endedAt: string | null;
+    primaryModel: string | null;
+    claudeVersion: string | null;
+    gitBranch: string | null;
+    totalInputTokens: number;
+    totalOutputTokens: number;
+    totalCacheCreateTokens: number;
+    totalCacheReadTokens: number;
+    totalCostUsd: number;
+    messageCount: number;
+    toolUseCount: number;
+    agentCount: number;
+  },
+): void {
+  db.prepare(`
+    INSERT INTO sessions
+    (id, project_id, started_at, ended_at, primary_model, claude_version,
+     git_branch, total_input_tokens, total_output_tokens, total_cache_create_tokens,
+     total_cache_read_tokens, total_cost_usd, message_count, tool_use_count, agent_count)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      ended_at = excluded.ended_at,
+      primary_model = excluded.primary_model,
+      total_input_tokens = excluded.total_input_tokens,
+      total_output_tokens = excluded.total_output_tokens,
+      total_cache_create_tokens = excluded.total_cache_create_tokens,
+      total_cache_read_tokens = excluded.total_cache_read_tokens,
+      total_cost_usd = excluded.total_cost_usd,
+      message_count = excluded.message_count,
+      tool_use_count = excluded.tool_use_count,
+      agent_count = excluded.agent_count
+  `).run(
+    session.id, session.projectId, session.startedAt, session.endedAt,
+    session.primaryModel, session.claudeVersion, session.gitBranch,
+    session.totalInputTokens, session.totalOutputTokens,
+    session.totalCacheCreateTokens, session.totalCacheReadTokens,
+    session.totalCostUsd, session.messageCount, session.toolUseCount,
+    session.agentCount,
+  );
 }
 
 // When run as hook handler: read JSON from stdin

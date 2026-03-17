@@ -91,6 +91,11 @@ export function getStaticHtml(): string {
         </table>
       </div>
       <div id="project-detail" style="display:none">
+        <div class="breakdown-bar-container" id="project-breakdown" style="margin-bottom:12px;display:none">
+          <div class="chart-title">Token Breakdown</div>
+          <div class="breakdown-bar" id="project-breakdown-bar"></div>
+          <div class="breakdown-legend" id="project-breakdown-legend"></div>
+        </div>
         <div class="chart-card wide">
           <div style="display:flex; justify-content:space-between; align-items:center;">
             <div class="chart-title" id="project-detail-title">Sessions</div>
@@ -265,6 +270,32 @@ let dailyChart = null;
 let modelChart = null;
 let categoryChart = null;
 let agentProjectFilter = null; // { id, name } when filtering agents by project
+var projectsCache = [];
+var cachedPricing = { input: 5.0, output: 25.0, cacheCreate: 6.25, cacheRead: 0.50 };
+
+function renderBreakdown(barId, legendId, tokens, pricing) {
+  var types = [
+    { name: 'Cache read', tokens: tokens.cacheRead || 0, color: '#f72585', rate: pricing.cacheRead },
+    { name: 'Cache write', tokens: tokens.cacheCreate || 0, color: '#7209b7', rate: pricing.cacheCreate },
+    { name: 'Output', tokens: tokens.output || 0, color: '#4361ee', rate: pricing.output },
+    { name: 'Input', tokens: tokens.input || 0, color: '#4cc9f0', rate: pricing.input },
+  ];
+  types.forEach(function(t) { t.cost = t.tokens * t.rate / 1000000; });
+  var total = types.reduce(function(s, t) { return s + t.cost; }, 0) || 1;
+
+  var bar = document.getElementById(barId);
+  bar.innerHTML = types.filter(function(t) { return t.cost > 0; }).map(function(t) {
+    var pct = Math.max(1, Math.round(t.cost / total * 100));
+    return '<div style="width:' + pct + '%;background:' + t.color + '">' + (pct >= 8 ? pct + '%' : '') + '</div>';
+  }).join('');
+
+  var legend = document.getElementById(legendId);
+  var fmtT = function(n) { return n >= 1000000 ? (n/1000000).toFixed(1) + 'M' : n >= 1000 ? (n/1000).toFixed(1) + 'K' : n; };
+  legend.innerHTML = types.map(function(t) {
+    var pct = Math.round(t.cost / total * 100);
+    return '<div><span class="dot" style="background:' + t.color + '"></span>' + t.name + ': ' + fmtT(t.tokens) + ' tokens \\u2014 $' + t.cost.toFixed(2) + ' (' + pct + '%)</div>';
+  }).join('');
+}
 
 function esc(s) {
   if (s == null) return '';
@@ -350,28 +381,10 @@ async function loadOverview() {
   document.getElementById('kpi-sessions').textContent = summary.sessionCount;
 
   // Cost breakdown bar — rates from API (falls back to Opus 4.6 defaults)
-  var pr = summary.pricing || { input: 5.0, output: 25.0, cacheCreate: 6.25, cacheRead: 0.50 };
-  var breakdownTypes = [
-    { name: 'Cache read', tokens: summary.totalCacheRead || 0, color: '#f72585', rate: pr.cacheRead, cost: 0 },
-    { name: 'Cache write', tokens: summary.totalCacheCreate || 0, color: '#7209b7', rate: pr.cacheCreate, cost: 0 },
-    { name: 'Output', tokens: summary.totalOutput || 0, color: '#4361ee', rate: pr.output, cost: 0 },
-    { name: 'Input', tokens: summary.totalInput || 0, color: '#4cc9f0', rate: pr.input, cost: 0 },
-  ];
-  breakdownTypes.forEach(function(t) { t.cost = t.tokens * t.rate / 1000000; });
-  var computedTotal = breakdownTypes.reduce(function(s, t) { return s + t.cost; }, 0) || 1;
-
-  var bar = document.getElementById('breakdown-bar');
-  bar.innerHTML = breakdownTypes.filter(function(t) { return t.cost > 0; }).map(function(t) {
-    var pct = Math.max(1, Math.round(t.cost / computedTotal * 100));
-    return '<div style="width:' + pct + '%;background:' + t.color + '">' + (pct >= 8 ? pct + '%' : '') + '</div>';
-  }).join('');
-
-  var legend = document.getElementById('breakdown-legend');
-  legend.innerHTML = breakdownTypes.map(function(t) {
-    var fmtT = t.tokens >= 1000000 ? (t.tokens/1000000).toFixed(1) + 'M' : t.tokens >= 1000 ? (t.tokens/1000).toFixed(1) + 'K' : t.tokens;
-    var pct = Math.round(t.cost / computedTotal * 100);
-    return '<div><span class="dot" style="background:' + t.color + '"></span>' + t.name + ': ' + fmtT + ' tokens \\u2014 $' + t.cost.toFixed(2) + ' (' + pct + '%)</div>';
-  }).join('');
+  cachedPricing = summary.pricing || cachedPricing;
+  renderBreakdown('breakdown-bar', 'breakdown-legend',
+    { cacheRead: summary.totalCacheRead, cacheCreate: summary.totalCacheCreate, output: summary.totalOutput, input: summary.totalInput },
+    cachedPricing);
 
   // Daily chart
   if (dailyChart) dailyChart.destroy();
@@ -452,6 +465,7 @@ async function loadOverview() {
 
 async function loadProjects() {
   const projects = await fetch('/api/projects?period=' + currentPeriod).then(r => r.json());
+  projectsCache = projects;
   const tbody = document.querySelector('#table-all-projects tbody');
   tbody.innerHTML = projects.map(p =>
     '<tr class="clickable-row" data-id="' + p.id + '"><td>' + esc(p.name) + '</td><td class="cost">' + fmt(p.total_cost) + '</td><td class="cost">' + fmt(p.userCost) + '</td><td class="overhead-cost">' + fmt(p.overheadCost) + '</td><td>' + p.session_count + '</td><td>' + esc(p.topCategory ?? 'mixed') + '</td><td>' + shortDate(p.last_active) + '</td></tr>'
@@ -477,6 +491,16 @@ async function loadProjectSessions(projectId, projectName) {
     '<tr><td>' + shortId(s.id) + '</td><td>' + shortDate(s.started_at) + '</td><td>' + esc(s.primary_model ?? '\\u2014') + '</td><td class="cost">' + fmt(s.total_cost_usd) + '</td><td>' + s.message_count + '</td><td>' + esc(s.category ?? 'mixed') + '</td></tr>'
   ).join('');
   document.getElementById('project-detail').style.display = 'block';
+
+  var proj = projectsCache.find(function(p) { return p.id == projectId; });
+  if (proj) {
+    document.getElementById('project-breakdown').style.display = 'block';
+    renderBreakdown('project-breakdown-bar', 'project-breakdown-legend',
+      { cacheRead: proj.cache_read_tokens, cacheCreate: proj.cache_create_tokens, output: proj.output_tokens, input: proj.input_tokens },
+      cachedPricing);
+  } else {
+    document.getElementById('project-breakdown').style.display = 'none';
+  }
 }
 
 async function loadAgents(filter) {
