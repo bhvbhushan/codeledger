@@ -59,7 +59,7 @@ export function registerProjectUsage(
         .enum(["cost", "tokens", "sessions"])
         .default("cost")
         .describe("Sort projects by cost, token count, or session count"),
-      limit: z.number().default(10).describe("Max number of projects to return"),
+      limit: z.number().int().min(1).max(100).default(10).describe("Max number of projects to return"),
     },
     async ({ period, sort_by, limit }) => {
       const projects = queryProjectUsage(db, period, sort_by, limit);

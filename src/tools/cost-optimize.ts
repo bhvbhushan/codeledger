@@ -153,7 +153,7 @@ export function registerCostOptimize(
     "cost_optimize",
     "Get specific, evidence-based recommendations to reduce costs",
     {
-      period: z.enum(["week", "month", "all"]).default("month").describe("Time period to analyze for optimization opportunities"),
+      period: z.enum(["today", "week", "month", "all"]).default("month").describe("Time period to analyze for optimization opportunities"),
     },
     async ({ period }) => {
       const recs = generateRecommendations(db, period);
