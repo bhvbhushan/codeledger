@@ -53,11 +53,13 @@ export function registerProjectUsage(
     {
       period: z
         .enum(["today", "week", "month", "all"])
-        .default("week"),
+        .default("week")
+        .describe("Time period to report on"),
       sort_by: z
         .enum(["cost", "tokens", "sessions"])
-        .default("cost"),
-      limit: z.number().default(10),
+        .default("cost")
+        .describe("Sort projects by cost, token count, or session count"),
+      limit: z.number().default(10).describe("Max number of projects to return"),
     },
     async ({ period, sort_by, limit }) => {
       const projects = queryProjectUsage(db, period, sort_by, limit);

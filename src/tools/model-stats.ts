@@ -80,7 +80,7 @@ export function registerModelStats(
     "model_stats",
     "Analyze which models are being used and potential cost savings",
     {
-      period: z.enum(["today", "week", "month", "all"]).default("month"),
+      period: z.enum(["today", "week", "month", "all"]).default("month").describe("Time period to analyze model usage"),
     },
     async ({ period }) => {
       const stats = queryModelStats(db, period);

@@ -87,7 +87,8 @@ export function registerAgentUsage(
       project: z.string().optional().describe("Filter by project"),
       period: z
         .enum(["today", "week", "month", "all"])
-        .default("week"),
+        .default("week")
+        .describe("Time period to report on"),
       source_category: z
         .enum(["user", "overhead", "all"])
         .default("all")

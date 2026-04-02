@@ -141,7 +141,8 @@ export function registerSkillUsage(
     {
       period: z
         .enum(["today", "week", "month", "all"])
-        .default("week"),
+        .default("week")
+        .describe("Time period to report on"),
       project: z.string().optional().describe("Filter by project"),
     },
     async ({ period, project }) => {
