@@ -130,7 +130,8 @@ export function registerUsageSummary(
     {
       period: z
         .enum(["today", "week", "month", "all"])
-        .default("today"),
+        .default("today")
+        .describe("Time period to summarize"),
       project: z.string().optional().describe("Filter by project name"),
     },
     async ({ period, project }) => {
