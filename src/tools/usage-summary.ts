@@ -15,6 +15,9 @@ interface UsageSummary {
   topProject: string | null;
   modelDistribution: { model: string; cost: number; pct: number }[];
   overheadCostUsd: number;
+  velocityPerDay: number | null;
+  projectedMonthly: number | null;
+  costliestSession: { cost: number; project: string } | null;
 }
 
 export function queryUsageSummary(
@@ -101,11 +104,74 @@ export function queryUsageSummary(
     .get(...agentParams) as { overhead_cost: number } | undefined;
 
   const totalCost = totals?.cost ?? 0;
+  const sessionCount = totals?.session_count ?? 0;
   const modelDistribution = models.map((m) => ({
     model: m.model ?? "unknown",
     cost: m.cost,
     pct: totalCost > 0 ? Math.round((m.cost / totalCost) * 100) : 0,
   }));
+
+  // Spend velocity + monthly projection
+  let velocityPerDay: number | null = null;
+  let projectedMonthly: number | null = null;
+
+  if (sessionCount > 0) {
+    let earliestFilter = "WHERE s.started_at >= ?";
+    const earliestParams: (string | number)[] = [start];
+    if (project) {
+      earliestFilter += " AND p.display_name = ?";
+      earliestParams.push(project);
+    }
+
+    const earliestRow = db
+      .prepare(
+        `
+      SELECT MIN(s.started_at) as earliest
+      FROM sessions s
+      LEFT JOIN projects p ON s.project_id = p.id
+      ${earliestFilter}
+    `
+      )
+      .get(...earliestParams) as { earliest: string | null } | undefined;
+
+    if (earliestRow?.earliest) {
+      // Calendar-based velocity: earliest session to now (conservative for budgeting)
+      const daysElapsed =
+        (Date.now() - new Date(earliestRow.earliest).getTime()) /
+        (1000 * 60 * 60 * 24);
+
+      if (daysElapsed >= 1) {
+        velocityPerDay = totalCost / daysElapsed;
+        projectedMonthly = velocityPerDay * 30;
+      }
+    }
+  }
+
+  // Costliest session
+  let costliestFilter = "WHERE s.started_at >= ?";
+  const costliestParams: (string | number)[] = [start];
+  if (project) {
+    costliestFilter += " AND p.display_name = ?";
+    costliestParams.push(project);
+  }
+
+  const costliestRow = db
+    .prepare(
+      `
+    SELECT s.total_cost_usd as cost, p.display_name as project
+    FROM sessions s
+    JOIN projects p ON s.project_id = p.id
+    ${costliestFilter}
+    ORDER BY s.total_cost_usd DESC LIMIT 1
+  `
+    )
+    .get(...costliestParams) as
+    | { cost: number; project: string }
+    | undefined;
+
+  const costliestSession = costliestRow
+    ? { cost: costliestRow.cost, project: costliestRow.project }
+    : null;
 
   return {
     totalCostUsd: totalCost,
@@ -113,10 +179,13 @@ export function queryUsageSummary(
     totalOutputTokens: totals?.output_tok ?? 0,
     totalCacheCreateTokens: totals?.cache_create_tok ?? 0,
     totalCacheReadTokens: totals?.cache_read_tok ?? 0,
-    sessionCount: totals?.session_count ?? 0,
+    sessionCount,
     topProject: topProj?.display_name ?? null,
     modelDistribution,
     overheadCostUsd: overheadRow?.overhead_cost ?? 0,
+    velocityPerDay,
+    projectedMonthly,
+    costliestSession,
   };
 }
 
@@ -176,6 +245,18 @@ export function registerUsageSummary(
         lines.push(
           "",
           `**Tokens:** ${fmtTokens(s.totalInputTokens)} input, ${fmtTokens(s.totalOutputTokens)} output, ${fmtTokens(s.totalCacheCreateTokens)} cache write, ${fmtTokens(s.totalCacheReadTokens)} cache read`
+        );
+      }
+
+      if (s.velocityPerDay !== null) {
+        lines.push(
+          `**Spend Velocity:** $${s.velocityPerDay.toFixed(2)}/day | Projected monthly: $${s.projectedMonthly!.toFixed(2)}`
+        );
+      }
+
+      if (s.costliestSession) {
+        lines.push(
+          `**Costliest session:** $${s.costliestSession.cost.toFixed(2)} (${s.costliestSession.project})`
         );
       }
 

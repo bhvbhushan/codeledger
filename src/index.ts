@@ -23,7 +23,7 @@ async function main() {
     `${process.env.HOME || process.env.USERPROFILE}/.claude`;
 
   const db = createConnection(dbPath);
-  runMigrations(db);
+  runMigrations(db, dbPath);
   seedPricing(db);
 
   // Retroactively classify existing sessions

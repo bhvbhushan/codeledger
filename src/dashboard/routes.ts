@@ -177,35 +177,52 @@ export function registerApiRoutes(app: Hono, db: Database.Database): void {
       }
     >;
 
-    // Enrich each project with overhead cost and top category
-    for (const row of rows) {
-      const oh = db
-        .prepare(
-          `
-        SELECT COALESCE(SUM(a.total_cost_usd), 0) as overhead_cost
-        FROM agents a
-        JOIN sessions s ON a.session_id = s.id
-        WHERE s.project_id = ? AND a.started_at >= ? AND a.source_category = 'overhead'
-      `,
-        )
-        .get(row.id, start) as Record<string, number>;
-      row.overheadCost = oh.overhead_cost;
-      row.userCost = row.total_cost - oh.overhead_cost;
+    // BATCH: Overhead cost per project (replaces N+1 per-project query)
+    const overheadRows = db
+      .prepare(
+        `
+      SELECT s.project_id, COALESCE(SUM(a.total_cost_usd), 0) as overhead_cost
+      FROM agents a
+      JOIN sessions s ON a.session_id = s.id
+      WHERE a.started_at >= ? AND a.source_category = 'overhead'
+      GROUP BY s.project_id
+    `,
+      )
+      .all(start) as Array<{ project_id: number; overhead_cost: number }>;
 
-      // Dominant session category for this project
-      const cat = db
-        .prepare(
-          `
-        SELECT category, COUNT(*) as cnt
-        FROM sessions
-        WHERE project_id = ? AND started_at >= ? AND category != 'mixed'
-        GROUP BY category
-        ORDER BY cnt DESC
-        LIMIT 1
-      `,
-        )
-        .get(row.id, start) as { category: string; cnt: number } | undefined;
-      (row as any).topCategory = cat?.category ?? "mixed";
+    const overheadByProject = new Map(
+      overheadRows.map((r) => [r.project_id, r.overhead_cost]),
+    );
+
+    // BATCH: Top category per project (replaces N+1 per-project query)
+    const categoryRows = db
+      .prepare(
+        `
+      SELECT project_id, category, COUNT(*) as cnt
+      FROM sessions
+      WHERE started_at >= ? AND category != 'mixed'
+      GROUP BY project_id, category
+      ORDER BY project_id, cnt DESC
+    `,
+      )
+      .all(start) as Array<{
+      project_id: number;
+      category: string;
+      cnt: number;
+    }>;
+
+    const topCategoryByProject = new Map<number, string>();
+    for (const cat of categoryRows) {
+      if (!topCategoryByProject.has(cat.project_id)) {
+        topCategoryByProject.set(cat.project_id, cat.category);
+      }
+    }
+
+    // Merge batch results into project rows
+    for (const row of rows) {
+      row.overheadCost = overheadByProject.get(row.id) ?? 0;
+      row.userCost = row.total_cost - row.overheadCost;
+      (row as any).topCategory = topCategoryByProject.get(row.id) ?? "mixed";
     }
 
     return c.json(rows);
