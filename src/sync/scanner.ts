@@ -3,6 +3,10 @@ import { readdirSync, statSync, existsSync } from "fs";
 import { join, basename } from "path";
 import { parseSessionFile } from "../parser/session-parser.js";
 import { parseAgentFile, readAgentMeta } from "../parser/agent-parser.js";
+import { CodexCollector } from "../collectors/codex-collector.js";
+import { ClineCollector } from "../collectors/cline-collector.js";
+import { GeminiCollector } from "../collectors/gemini-collector.js";
+import type { Collector, CollectorResult } from "../collectors/types.js";
 
 interface ScanResult {
   newFiles: number;
@@ -165,6 +169,78 @@ export async function scanForNewSessions(
           );
         }
       }
+    }
+  }
+
+  return { newFiles, errors };
+}
+
+export async function scanCollectors(
+  db: Database.Database,
+): Promise<ScanResult> {
+  const collectors: Collector[] = [
+    new CodexCollector(),
+    new ClineCollector(),
+    new GeminiCollector(),
+  ];
+
+  let newFiles = 0;
+  let errors = 0;
+
+  for (const collector of collectors) {
+    try {
+      const files = collector.findDataFiles();
+
+      for (const filePath of files) {
+        const fileStat = statSync(filePath, { throwIfNoEntry: false });
+        if (!fileStat) continue;
+
+        const syncRow = db
+          .prepare("SELECT * FROM sync_state WHERE file_path = ?")
+          .get(filePath) as any;
+
+        if (syncRow && syncRow.file_size === fileStat.size) {
+          continue;
+        }
+
+        try {
+          const result: CollectorResult = await collector.parseFile(db, filePath);
+          newFiles += result.sessionsAdded;
+          errors += result.errors;
+
+          if (result.sessionsAdded > 0) {
+            db.prepare(`
+              INSERT OR REPLACE INTO sync_state
+              (file_path, file_size, last_modified, last_parsed_at, lines_parsed, status)
+              VALUES (?, ?, ?, ?, 0, 'complete')
+            `).run(
+              filePath,
+              fileStat.size,
+              fileStat.mtime.toISOString(),
+              new Date().toISOString(),
+            );
+          }
+        } catch (err) {
+          errors++;
+          process.stderr.write(
+            `[codeledger] Warning: ${collector.tool} collector error on ${filePath}: ${err}\n`,
+          );
+          db.prepare(`
+            INSERT OR REPLACE INTO sync_state
+            (file_path, file_size, last_modified, last_parsed_at, lines_parsed, status)
+            VALUES (?, ?, ?, ?, 0, 'error')
+          `).run(
+            filePath,
+            fileStat.size,
+            fileStat.mtime.toISOString(),
+            new Date().toISOString(),
+          );
+        }
+      }
+    } catch (err) {
+      process.stderr.write(
+        `[codeledger] Warning: ${collector.tool} collector failed: ${err}\n`,
+      );
     }
   }
 

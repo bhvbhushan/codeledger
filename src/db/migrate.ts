@@ -4,6 +4,8 @@ import { PHASE_A_SCHEMA } from "./schema.js";
 import { PHASE_B_SCHEMA } from "./schema-v2.js";
 import { PHASE_B_CATEGORY_SCHEMA } from "./schema-v3.js";
 import { PHASE_C_CATEGORY_SCHEMA } from "./schema-v4.js";
+import { PHASE_E_BUDGET_SCHEMA } from "./schema-v5.js";
+import { PHASE_E2_MULTI_TOOL_SCHEMA } from "./schema-v6.js";
 
 interface Migration {
   version: number;
@@ -15,6 +17,8 @@ const MIGRATIONS: Migration[] = [
   { version: 2, sql: PHASE_B_SCHEMA },
   { version: 3, sql: PHASE_B_CATEGORY_SCHEMA },
   { version: 4, sql: PHASE_C_CATEGORY_SCHEMA },
+  { version: 5, sql: PHASE_E_BUDGET_SCHEMA },
+  { version: 6, sql: PHASE_E2_MULTI_TOOL_SCHEMA },
 ];
 
 /** Check whether a column already exists on a table. */

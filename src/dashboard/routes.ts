@@ -22,7 +22,7 @@ export function registerApiRoutes(app: Hono, db: Database.Database): void {
         COALESCE(SUM(s.total_cache_read_tokens), 0) as cache_read,
         COUNT(*) as session_count
       FROM sessions s
-      WHERE s.started_at >= ?
+      WHERE s.started_at >= ? AND s.tool = 'claude-code'
     `,
       )
       .get(start) as Record<string, number>;
@@ -32,7 +32,8 @@ export function registerApiRoutes(app: Hono, db: Database.Database): void {
         `
       SELECT COALESCE(SUM(a.total_cost_usd), 0) as overhead_cost
       FROM agents a
-      WHERE a.started_at >= ? AND a.source_category = 'overhead'
+      JOIN sessions s ON a.session_id = s.id
+      WHERE a.started_at >= ? AND s.tool = 'claude-code' AND a.source_category = 'overhead'
     `,
       )
       .get(start) as Record<string, number>;
@@ -40,7 +41,7 @@ export function registerApiRoutes(app: Hono, db: Database.Database): void {
     // Get dominant model pricing for breakdown display
     const dominantModel = db.prepare(`
       SELECT primary_model, COUNT(*) as cnt FROM sessions
-      WHERE started_at >= ? AND primary_model IS NOT NULL
+      WHERE started_at >= ? AND tool = 'claude-code' AND primary_model IS NOT NULL
       GROUP BY primary_model ORDER BY cnt DESC LIMIT 1
     `).get(start) as { primary_model: string } | undefined;
 
@@ -82,7 +83,7 @@ export function registerApiRoutes(app: Hono, db: Database.Database): void {
         DATE(s.started_at) as date,
         COALESCE(SUM(s.total_cost_usd), 0) as total_cost
       FROM sessions s
-      WHERE s.started_at >= ?
+      WHERE s.started_at >= ? AND s.tool = 'claude-code'
       GROUP BY DATE(s.started_at)
       ORDER BY date
     `,
@@ -97,7 +98,8 @@ export function registerApiRoutes(app: Hono, db: Database.Database): void {
         DATE(a.started_at) as date,
         COALESCE(SUM(a.total_cost_usd), 0) as overhead_cost
       FROM agents a
-      WHERE a.started_at >= ? AND a.source_category = 'overhead'
+      JOIN sessions s ON a.session_id = s.id
+      WHERE a.started_at >= ? AND s.tool = 'claude-code' AND a.source_category = 'overhead'
       GROUP BY DATE(a.started_at)
       ORDER BY date
     `,
@@ -127,14 +129,15 @@ export function registerApiRoutes(app: Hono, db: Database.Database): void {
       .prepare(
         `
       SELECT
-        model,
-        SUM(input_tokens) as total_input,
-        SUM(output_tokens) as total_output,
-        SUM(cost_usd) as total_cost,
+        tu.model,
+        SUM(tu.input_tokens) as total_input,
+        SUM(tu.output_tokens) as total_output,
+        SUM(tu.cost_usd) as total_cost,
         COUNT(*) as message_count
-      FROM token_usage
-      WHERE timestamp >= ?
-      GROUP BY model
+      FROM token_usage tu
+      JOIN sessions s ON tu.session_id = s.id
+      WHERE tu.timestamp >= ? AND s.tool = 'claude-code'
+      GROUP BY tu.model
       ORDER BY total_cost DESC
     `,
       )
@@ -162,7 +165,7 @@ export function registerApiRoutes(app: Hono, db: Database.Database): void {
         COUNT(s.id) as session_count,
         MAX(s.started_at) as last_active
       FROM projects p
-      LEFT JOIN sessions s ON s.project_id = p.id AND s.started_at >= ?
+      LEFT JOIN sessions s ON s.project_id = p.id AND s.started_at >= ? AND s.tool = 'claude-code'
       GROUP BY p.id
       HAVING session_count > 0
       ORDER BY total_cost DESC
@@ -184,7 +187,7 @@ export function registerApiRoutes(app: Hono, db: Database.Database): void {
       SELECT s.project_id, COALESCE(SUM(a.total_cost_usd), 0) as overhead_cost
       FROM agents a
       JOIN sessions s ON a.session_id = s.id
-      WHERE a.started_at >= ? AND a.source_category = 'overhead'
+      WHERE a.started_at >= ? AND s.tool = 'claude-code' AND a.source_category = 'overhead'
       GROUP BY s.project_id
     `,
       )
@@ -200,7 +203,7 @@ export function registerApiRoutes(app: Hono, db: Database.Database): void {
         `
       SELECT project_id, category, COUNT(*) as cnt
       FROM sessions
-      WHERE started_at >= ? AND category != 'mixed'
+      WHERE started_at >= ? AND tool = 'claude-code' AND category != 'mixed'
       GROUP BY project_id, category
       ORDER BY project_id, cnt DESC
     `,
@@ -252,7 +255,7 @@ export function registerApiRoutes(app: Hono, db: Database.Database): void {
         s.end_reason,
         s.category
       FROM sessions s
-      WHERE s.project_id = ? AND s.started_at >= ?
+      WHERE s.project_id = ? AND s.started_at >= ? AND s.tool = 'claude-code'
       ORDER BY s.started_at DESC
     `,
       )
@@ -285,7 +288,7 @@ export function registerApiRoutes(app: Hono, db: Database.Database): void {
       FROM agents a
       JOIN sessions s ON a.session_id = s.id
       JOIN projects p ON s.project_id = p.id
-      WHERE a.started_at >= ?
+      WHERE a.started_at >= ? AND s.tool = 'claude-code'
     `;
     const params: (string | number)[] = [start];
 
@@ -325,7 +328,7 @@ export function registerApiRoutes(app: Hono, db: Database.Database): void {
         COUNT(*) as session_count,
         COALESCE(SUM(total_cost_usd), 0) as total_cost
       FROM sessions
-      WHERE started_at >= ?
+      WHERE started_at >= ? AND tool = 'claude-code'
       GROUP BY category
       ORDER BY total_cost DESC
     `,

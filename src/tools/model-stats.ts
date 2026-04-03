@@ -25,14 +25,15 @@ export function queryModelStats(
     .prepare(
       `
     SELECT
-      model,
-      SUM(input_tokens) as total_input,
-      SUM(output_tokens) as total_output,
-      SUM(cost_usd) as total_cost,
+      tu.model,
+      SUM(tu.input_tokens) as total_input,
+      SUM(tu.output_tokens) as total_output,
+      SUM(tu.cost_usd) as total_cost,
       COUNT(*) as message_count
-    FROM token_usage
-    WHERE timestamp >= ?
-    GROUP BY model
+    FROM token_usage tu
+    JOIN sessions s ON tu.session_id = s.id
+    WHERE tu.timestamp >= ? AND s.tool = 'claude-code'
+    GROUP BY tu.model
     ORDER BY total_cost DESC
   `
     )

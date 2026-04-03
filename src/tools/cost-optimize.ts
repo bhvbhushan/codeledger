@@ -27,7 +27,7 @@ export function generateRecommendations(
            SUM(s.total_input_tokens) as input_tok, SUM(s.total_output_tokens) as output_tok,
            SUM(s.total_cache_create_tokens) as cache_create_tok, SUM(s.total_cache_read_tokens) as cache_read_tok
     FROM sessions s
-    WHERE s.started_at >= ? AND s.category = 'exploration' AND s.primary_model LIKE '%opus%'
+    WHERE s.started_at >= ? AND s.tool = 'claude-code' AND s.category = 'exploration' AND s.primary_model LIKE '%opus%'
   `
     )
     .get(start) as any;
@@ -58,7 +58,7 @@ export function generateRecommendations(
            SUM(s.total_input_tokens) as input_tok, SUM(s.total_output_tokens) as output_tok,
            SUM(s.total_cache_create_tokens) as cache_create_tok, SUM(s.total_cache_read_tokens) as cache_read_tok
     FROM sessions s
-    WHERE s.started_at >= ? AND s.category = 'review' AND s.primary_model LIKE '%opus%'
+    WHERE s.started_at >= ? AND s.tool = 'claude-code' AND s.category = 'review' AND s.primary_model LIKE '%opus%'
   `
     )
     .get(start) as any;
@@ -85,7 +85,7 @@ export function generateRecommendations(
   const totalAgentCost = db
     .prepare(
       `
-    SELECT COALESCE(SUM(total_cost_usd), 0) as cost FROM agents WHERE started_at >= ?
+    SELECT COALESCE(SUM(a.total_cost_usd), 0) as cost FROM agents a JOIN sessions s ON a.session_id = s.id WHERE a.started_at >= ? AND s.tool = 'claude-code'
   `
     )
     .get(start) as any;
@@ -93,7 +93,7 @@ export function generateRecommendations(
   const overheadCost = db
     .prepare(
       `
-    SELECT COALESCE(SUM(total_cost_usd), 0) as cost FROM agents WHERE started_at >= ? AND source_category = 'overhead'
+    SELECT COALESCE(SUM(a.total_cost_usd), 0) as cost FROM agents a JOIN sessions s ON a.session_id = s.id WHERE a.started_at >= ? AND s.tool = 'claude-code' AND a.source_category = 'overhead'
   `
     )
     .get(start) as any;
@@ -117,7 +117,7 @@ export function generateRecommendations(
            SUM(s.total_input_tokens) as input_tok, SUM(s.total_output_tokens) as output_tok,
            SUM(s.total_cache_create_tokens) as cache_create_tok, SUM(s.total_cache_read_tokens) as cache_read_tok
     FROM sessions s
-    WHERE s.started_at >= ? AND s.category = 'devops' AND s.primary_model LIKE '%opus%'
+    WHERE s.started_at >= ? AND s.tool = 'claude-code' AND s.category = 'devops' AND s.primary_model LIKE '%opus%'
   `
     )
     .get(start) as any;
@@ -145,7 +145,7 @@ export function generateRecommendations(
   const sessionCountInPeriod = db
     .prepare(
       `
-    SELECT COUNT(*) as count FROM sessions WHERE started_at >= ?
+    SELECT COUNT(*) as count FROM sessions WHERE started_at >= ? AND tool = 'claude-code'
   `
     )
     .get(start) as { count: number };
@@ -158,7 +158,7 @@ export function generateRecommendations(
       SELECT
         COALESCE(SUM(total_cache_read_tokens), 0) as cache_read,
         COALESCE(SUM(total_input_tokens), 0) as input_tokens
-      FROM sessions WHERE started_at >= ?
+      FROM sessions WHERE started_at >= ? AND tool = 'claude-code'
     `
       )
       .get(start) as { cache_read: number; input_tokens: number };
@@ -173,7 +173,7 @@ export function generateRecommendations(
       SELECT
         COALESCE(SUM(total_cache_read_tokens), 0) as cache_read,
         COALESCE(SUM(total_input_tokens), 0) as input_tokens
-      FROM sessions
+      FROM sessions WHERE tool = 'claude-code'
     `
       )
       .get() as { cache_read: number; input_tokens: number };
@@ -205,6 +205,42 @@ export function generateRecommendations(
           recommendation:
             "Investigate prompt cache settings. Cache breaks can increase costs 5-10x. Check if system prompts or tool definitions changed recently.",
           potential_savings: estimatedIncrease,
+        });
+      }
+    }
+  }
+
+  // Rule 6: Spend anomaly detection (z-score)
+  const dailyCosts = db
+    .prepare(
+      `SELECT date, COALESCE(SUM(total_cost_usd), 0) as cost
+       FROM daily_summaries
+       GROUP BY date
+       ORDER BY date DESC
+       LIMIT 30`
+    )
+    .all() as { date: string; cost: number }[];
+
+  if (dailyCosts.length >= 7) {
+    const costs = dailyCosts.map((d) => d.cost);
+    const mean = costs.reduce((a, b) => a + b, 0) / costs.length;
+    const variance =
+      costs.reduce((sum, c) => sum + (c - mean) ** 2, 0) / costs.length;
+    const stddev = Math.sqrt(variance);
+
+    const recentAvg =
+      costs.slice(0, Math.min(3, costs.length)).reduce((a, b) => a + b, 0) /
+      Math.min(3, costs.length);
+
+    if (stddev > 0) {
+      const zScore = (recentAvg - mean) / stddev;
+      if (zScore > 2.0 && recentAvg > mean + 1.0) {
+        recommendations.push({
+          what: "Unusual spending spike detected",
+          evidence: `Recent daily avg $${recentAvg.toFixed(2)} vs 30-day mean $${mean.toFixed(2)} (z-score: ${zScore.toFixed(1)})`,
+          recommendation:
+            "Review recent sessions for runaway agents or unexpected usage patterns",
+          potential_savings: recentAvg - mean,
         });
       }
     }

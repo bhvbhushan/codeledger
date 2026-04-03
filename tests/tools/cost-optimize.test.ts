@@ -159,6 +159,76 @@ describe("cost_optimize", () => {
     expect(cacheRec).toBeFalsy();
   });
 
+  it("does NOT flag anomaly with < 7 days of data", () => {
+    seedProject();
+    for (let i = 0; i < 5; i++) {
+      const date = `2026-03-${String(10 + i).padStart(2, "0")}`;
+      db.prepare(
+        "INSERT INTO daily_summaries (date, project_id, model, total_cost_usd, session_count) VALUES (?, 1, ?, ?, 1)"
+      ).run(date, "claude-opus-4-6", 5.0);
+    }
+
+    const recs = generateRecommendations(db, "all");
+    const anomaly = recs.find((r) => r.what.includes("spike"));
+    expect(anomaly).toBeFalsy();
+  });
+
+  it("does NOT flag anomaly when spend is normal", () => {
+    seedProject();
+    for (let i = 0; i < 10; i++) {
+      const date = `2026-03-${String(5 + i).padStart(2, "0")}`;
+      db.prepare(
+        "INSERT INTO daily_summaries (date, project_id, model, total_cost_usd, session_count) VALUES (?, 1, ?, ?, 1)"
+      ).run(date, "claude-opus-4-6", 5.0);
+    }
+
+    const recs = generateRecommendations(db, "all");
+    const anomaly = recs.find((r) => r.what.includes("spike"));
+    expect(anomaly).toBeFalsy();
+  });
+
+  it("does NOT flag anomaly when z > 2 but delta < $1 (noise filter)", () => {
+    seedProject();
+    for (let i = 0; i < 10; i++) {
+      const date = `2026-03-${String(5 + i).padStart(2, "0")}`;
+      db.prepare(
+        "INSERT INTO daily_summaries (date, project_id, model, total_cost_usd, session_count) VALUES (?, 1, ?, ?, 1)"
+      ).run(date, "claude-opus-4-6", 0.10);
+    }
+    // Slightly higher recent day but still < $1 above mean
+    db.prepare(
+      "INSERT INTO daily_summaries (date, project_id, model, total_cost_usd, session_count) VALUES (?, 1, ?, ?, 1)"
+    ).run("2026-03-20", "claude-opus-4-6", 0.50);
+
+    const recs = generateRecommendations(db, "all");
+    const anomaly = recs.find((r) => r.what.includes("spike"));
+    expect(anomaly).toBeFalsy();
+  });
+
+  it("flags genuine spending anomaly", () => {
+    seedProject();
+    // 20 days of low, stable spend to create a strong baseline
+    for (let i = 0; i < 20; i++) {
+      const date = `2026-02-${String(5 + i).padStart(2, "0")}`;
+      db.prepare(
+        "INSERT INTO daily_summaries (date, project_id, model, total_cost_usd, session_count) VALUES (?, 1, ?, ?, 1)"
+      ).run(date, "claude-opus-4-6", 2.0);
+    }
+    // Recent 3 days with a massive spike
+    for (let i = 0; i < 3; i++) {
+      const date = `2026-03-${String(16 + i).padStart(2, "0")}`;
+      db.prepare(
+        "INSERT INTO daily_summaries (date, project_id, model, total_cost_usd, session_count) VALUES (?, 1, ?, ?, 1)"
+      ).run(date, "claude-opus-4-6", 50.0);
+    }
+
+    const recs = generateRecommendations(db, "all");
+    const anomaly = recs.find((r) => r.what.includes("spike"));
+    expect(anomaly).toBeTruthy();
+    expect(anomaly!.evidence).toContain("z-score");
+    expect(anomaly!.potential_savings).toBeGreaterThan(0);
+  });
+
   it("flags very low cache ratio (<10%) when baseline was good", () => {
     seedProject();
     // Old sessions with good cache (baseline)

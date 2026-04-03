@@ -115,20 +115,33 @@ export function upsertDailySummary(
   db: Database.Database,
   date: string,
   projectId: number,
-  model: string,
-  inputTokens: number,
-  outputTokens: number,
-  costUsd: number
+  model: string
 ): void {
-  db.prepare(`
-    INSERT INTO daily_summaries (date, project_id, model, total_input_tokens, total_output_tokens, total_cost_usd, session_count)
-    VALUES (?, ?, ?, ?, ?, ?, 1)
-    ON CONFLICT(date, project_id, model) DO UPDATE SET
-      total_input_tokens = total_input_tokens + excluded.total_input_tokens,
-      total_output_tokens = total_output_tokens + excluded.total_output_tokens,
-      total_cost_usd = total_cost_usd + excluded.total_cost_usd,
-      session_count = session_count + 1
-  `).run(date, projectId, model, inputTokens, outputTokens, costUsd);
+  const row = db
+    .prepare(
+      `SELECT COUNT(*) as cnt,
+              COALESCE(SUM(total_input_tokens), 0) as input_tok,
+              COALESCE(SUM(total_output_tokens), 0) as output_tok,
+              COALESCE(SUM(total_cost_usd), 0) as cost
+       FROM sessions
+       WHERE date(started_at) = ? AND project_id = ? AND primary_model = ?`
+    )
+    .get(date, projectId, model) as {
+    cnt: number;
+    input_tok: number;
+    output_tok: number;
+    cost: number;
+  };
+
+  db.prepare(
+    `INSERT INTO daily_summaries (date, project_id, model, total_input_tokens, total_output_tokens, total_cost_usd, session_count)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(date, project_id, model) DO UPDATE SET
+       total_input_tokens = excluded.total_input_tokens,
+       total_output_tokens = excluded.total_output_tokens,
+       total_cost_usd = excluded.total_cost_usd,
+       session_count = excluded.session_count`
+  ).run(date, projectId, model, row.input_tok, row.output_tok, row.cost, row.cnt);
 }
 
 export function recalculateProjectTotals(
