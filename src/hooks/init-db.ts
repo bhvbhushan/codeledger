@@ -4,8 +4,9 @@ import { seedPricing } from "../db/pricing.js";
 import type Database from "better-sqlite3";
 
 export function initHookDb(dbPath?: string): Database.Database {
-  const db = createConnection(dbPath ?? getDefaultDbPath());
-  runMigrations(db);
+  const resolved = dbPath ?? getDefaultDbPath();
+  const db = createConnection(resolved);
+  runMigrations(db, resolved);
   seedPricing(db);
   return db;
 }

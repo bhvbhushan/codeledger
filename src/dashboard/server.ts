@@ -16,7 +16,7 @@ const claudeDir =
   `${process.env.HOME || process.env.USERPROFILE}/.claude`;
 
 const db = createConnection(dbPath);
-runMigrations(db);
+runMigrations(db, dbPath);
 seedPricing(db);
 
 // Scan JSONL files and classify sessions — dashboard works standalone

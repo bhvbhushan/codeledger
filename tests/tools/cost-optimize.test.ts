@@ -109,4 +109,74 @@ describe("cost_optimize", () => {
     const explorationRec = recs.find(r => r.what.includes("exploration"));
     expect(explorationRec).toBeFalsy();
   });
+
+  it("flags cache efficiency drop when ratio drops >50% from baseline", () => {
+    seedProject();
+    // Old sessions with good cache ratio (baseline)
+    for (let i = 0; i < 10; i++) {
+      db.prepare(
+        "INSERT INTO sessions (id, project_id, started_at, primary_model, total_cost_usd, total_input_tokens, total_cache_read_tokens, message_count) VALUES (?, 1, ?, ?, ?, ?, ?, ?)"
+      ).run(`old-${i}`, "2025-01-01T10:00:00Z", "claude-opus-4-6", 5.00, 10000, 40000, 5);
+    }
+    // Recent sessions with bad cache ratio
+    for (let i = 0; i < 6; i++) {
+      db.prepare(
+        "INSERT INTO sessions (id, project_id, started_at, primary_model, total_cost_usd, total_input_tokens, total_cache_read_tokens, message_count) VALUES (?, 1, ?, ?, ?, ?, ?, ?)"
+      ).run(`new-${i}`, "2026-03-16T10:00:00Z", "claude-opus-4-6", 15.00, 45000, 5000, 5);
+    }
+
+    const recs = generateRecommendations(db, "month");
+    const cacheRec = recs.find(r => r.what.includes("cache"));
+    expect(cacheRec).toBeTruthy();
+    expect(cacheRec!.evidence).toContain("baseline");
+  });
+
+  it("does NOT flag cache when < 5 sessions in period (guard)", () => {
+    seedProject();
+    // Only 3 sessions in period (below threshold)
+    for (let i = 0; i < 3; i++) {
+      db.prepare(
+        "INSERT INTO sessions (id, project_id, started_at, primary_model, total_cost_usd, total_input_tokens, total_cache_read_tokens, message_count) VALUES (?, 1, ?, ?, ?, ?, ?, ?)"
+      ).run(`s-${i}`, "2026-03-16T10:00:00Z", "claude-opus-4-6", 5.00, 45000, 5000, 5);
+    }
+
+    const recs = generateRecommendations(db, "month");
+    const cacheRec = recs.find(r => r.what.includes("cache"));
+    expect(cacheRec).toBeFalsy();
+  });
+
+  it("does NOT flag cache when ratio is normal (>30%)", () => {
+    seedProject();
+    // Good cache ratio sessions
+    for (let i = 0; i < 6; i++) {
+      db.prepare(
+        "INSERT INTO sessions (id, project_id, started_at, primary_model, total_cost_usd, total_input_tokens, total_cache_read_tokens, message_count) VALUES (?, 1, ?, ?, ?, ?, ?, ?)"
+      ).run(`s-${i}`, "2026-03-16T10:00:00Z", "claude-opus-4-6", 5.00, 10000, 40000, 5);
+    }
+
+    const recs = generateRecommendations(db, "all");
+    const cacheRec = recs.find(r => r.what.includes("cache"));
+    expect(cacheRec).toBeFalsy();
+  });
+
+  it("flags very low cache ratio (<10%) when baseline was good", () => {
+    seedProject();
+    // Old sessions with good cache (baseline)
+    for (let i = 0; i < 10; i++) {
+      db.prepare(
+        "INSERT INTO sessions (id, project_id, started_at, primary_model, total_cost_usd, total_input_tokens, total_cache_read_tokens, message_count) VALUES (?, 1, ?, ?, ?, ?, ?, ?)"
+      ).run(`old-${i}`, "2025-01-01T10:00:00Z", "claude-opus-4-6", 5.00, 10000, 40000, 5);
+    }
+    // Recent sessions with terrible cache ratio
+    for (let i = 0; i < 6; i++) {
+      db.prepare(
+        "INSERT INTO sessions (id, project_id, started_at, primary_model, total_cost_usd, total_input_tokens, total_cache_read_tokens, message_count) VALUES (?, 1, ?, ?, ?, ?, ?, ?)"
+      ).run(`new-${i}`, "2026-03-16T10:00:00Z", "claude-opus-4-6", 25.00, 49000, 1000, 5);
+    }
+
+    const recs = generateRecommendations(db, "month");
+    const cacheRec = recs.find(r => r.what.includes("cache"));
+    expect(cacheRec).toBeTruthy();
+    expect(cacheRec!.potential_savings).toBeGreaterThan(0);
+  });
 });

@@ -140,6 +140,76 @@ export function generateRecommendations(
     }
   }
 
+  // Rule 5: Cache efficiency drop
+  // Note: intentionally a no-op for period="all" since baseline and current are identical
+  const sessionCountInPeriod = db
+    .prepare(
+      `
+    SELECT COUNT(*) as count FROM sessions WHERE started_at >= ?
+  `
+    )
+    .get(start) as { count: number };
+
+  if (sessionCountInPeriod.count >= 5) {
+    // Current period cache ratio
+    const currentCache = db
+      .prepare(
+        `
+      SELECT
+        COALESCE(SUM(total_cache_read_tokens), 0) as cache_read,
+        COALESCE(SUM(total_input_tokens), 0) as input_tokens
+      FROM sessions WHERE started_at >= ?
+    `
+      )
+      .get(start) as { cache_read: number; input_tokens: number };
+
+    const currentTotal = currentCache.cache_read + currentCache.input_tokens;
+    const currentRatio = currentTotal > 0 ? currentCache.cache_read / currentTotal : 0;
+
+    // All-time baseline cache ratio
+    const baselineCache = db
+      .prepare(
+        `
+      SELECT
+        COALESCE(SUM(total_cache_read_tokens), 0) as cache_read,
+        COALESCE(SUM(total_input_tokens), 0) as input_tokens
+      FROM sessions
+    `
+      )
+      .get() as { cache_read: number; input_tokens: number };
+
+    const baselineTotal = baselineCache.cache_read + baselineCache.input_tokens;
+    const baselineRatio = baselineTotal > 0 ? baselineCache.cache_read / baselineTotal : 0;
+
+    // Flag if current ratio dropped >50% from baseline AND baseline was meaningful (>20%)
+    if (baselineRatio > 0.2 && currentRatio < baselineRatio * 0.5) {
+      const baselinePct = Math.round(baselineRatio * 100);
+      const currentPct = Math.round(currentRatio * 100);
+      // Estimate cost increase: without cache, input tokens cost full price instead of cache_read price
+      const pricingForEstimate = lookupPricing(db, "claude-opus-4-6");
+      let estimatedIncrease = 0;
+      if (pricingForEstimate) {
+        const cacheReadPrice = pricingForEstimate.cache_read_per_mtok ?? 0;
+        const inputPrice = pricingForEstimate.input_per_mtok;
+        // If cache ratio were at baseline, more tokens would be cache_read (cheaper)
+        const expectedCacheTokens = currentTotal * baselineRatio;
+        const actualCacheTokens = currentCache.cache_read;
+        const missedCacheTokens = expectedCacheTokens - actualCacheTokens;
+        estimatedIncrease = (missedCacheTokens * (inputPrice - cacheReadPrice)) / 1_000_000;
+      }
+
+      if (estimatedIncrease > 0.5) {
+        recommendations.push({
+          what: "Prompt cache efficiency dropped significantly",
+          evidence: `Cache hit ratio dropped from ${baselinePct}% (baseline) to ${currentPct}% this ${period}. ${sessionCountInPeriod.count} sessions analyzed.`,
+          recommendation:
+            "Investigate prompt cache settings. Cache breaks can increase costs 5-10x. Check if system prompts or tool definitions changed recently.",
+          potential_savings: estimatedIncrease,
+        });
+      }
+    }
+  }
+
   // Sort by potential savings descending
   recommendations.sort((a, b) => b.potential_savings - a.potential_savings);
   return recommendations;
