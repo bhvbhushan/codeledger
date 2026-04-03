@@ -1,6 +1,6 @@
 {
   "name": "codeledger",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Token-level cost intelligence for Claude Code — per-project, per-agent, per-skill usage tracking with conversational MCP querying and local dashboard",
   "type": "module",
   "main": "dist/index.js",

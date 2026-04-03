@@ -2,6 +2,14 @@
 
 All notable changes to CodeLedger are documented here.
 
+## [0.3.1] - 2026-04-03
+
+### Fixed
+- Publish workflow: remove broken `npm install -g npm@latest` step that fails on Node 22 GitHub Actions runner (`MODULE_NOT_FOUND: promise-retry`)
+
+### Added
+- CHANGELOG.md covering all releases from 0.1.0 through 0.3.0
+
 ## [0.3.0] - 2026-04-03
 
 ### Added
