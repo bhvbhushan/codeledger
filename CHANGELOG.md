@@ -2,10 +2,11 @@
 
 All notable changes to CodeLedger are documented here.
 
-## [0.3.1] - 2026-04-03
+## [0.3.2] - 2026-04-03
 
 ### Fixed
-- Publish workflow: remove broken `npm install -g npm@latest` step that fails on Node 22 GitHub Actions runner (`MODULE_NOT_FOUND: promise-retry`)
+- Publish workflow: add OIDC token clearing step for Trusted Publisher auth (was using empty token placeholder instead of OIDC, causing 404 on publish)
+- Publish workflow: restore `npm install -g npm@latest` for OIDC support, add `workflow_dispatch` trigger
 
 ### Added
 - CHANGELOG.md covering all releases from 0.1.0 through 0.3.0
