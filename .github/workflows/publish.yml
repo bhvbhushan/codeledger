@@ -1,6 +1,7 @@
 name: Publish to npm
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths: [package.json]
@@ -18,6 +19,14 @@ jobs:
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
+
+      - name: Install latest npm (OIDC requires >= 11.5.1)
+        run: npm install -g npm@latest
+
+      - name: Clear token-based auth for Trusted Publisher OIDC
+        run: |
+          npm config delete //registry.npmjs.org/:_authToken 2>/dev/null || true
+          echo "Cleared .npmrc token entry — npm will use OIDC via Trusted Publisher"
 
       - name: Check if version is already published
         id: version-check
@@ -49,7 +58,7 @@ jobs:
         if: steps.version-check.outputs.skip == 'false'
         run: npm run build
 
-      - name: Publish to npm
+      - name: Publish to npm (Trusted Publisher via OIDC)
         if: steps.version-check.outputs.skip == 'false'
         run: npm publish --provenance --access public
 
