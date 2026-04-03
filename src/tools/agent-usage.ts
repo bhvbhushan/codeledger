@@ -28,7 +28,7 @@ export function queryAgentUsage(
 ): AgentUsageRow[] {
   const start = periodToStart(period);
 
-  let whereClause = "WHERE a.started_at >= ?";
+  let whereClause = "WHERE a.started_at >= ? AND s.tool = 'claude-code'";
   const params: (string | number)[] = [start];
 
   if (filters?.sessionId) {

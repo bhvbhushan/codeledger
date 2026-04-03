@@ -31,7 +31,7 @@ export function querySkillUsage(
     FROM skills sk
     JOIN sessions s ON sk.session_id = s.id
     JOIN projects p ON s.project_id = p.id
-    WHERE sk.invoked_at >= ?
+    WHERE sk.invoked_at >= ? AND s.tool = 'claude-code'
   `;
   const params: (string | number)[] = [start];
 

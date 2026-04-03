@@ -193,6 +193,6 @@ describe("schema v4", () => {
     const v = db
       .prepare("SELECT MAX(version) as v FROM schema_version")
       .get() as any;
-    expect(v.v).toBe(4);
+    expect(v.v).toBe(6);
   });
 });

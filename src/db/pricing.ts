@@ -59,6 +59,57 @@ const DEFAULT_PRICING: ModelPricing[] = [
     cache_create_per_mtok: 1.25,
     cache_read_per_mtok: 0.1,
   },
+  // OpenAI models (used by Codex CLI)
+  {
+    model_pattern: "o3-mini",
+    input_per_mtok: 1.1,
+    output_per_mtok: 4.4,
+    cache_create_per_mtok: null,
+    cache_read_per_mtok: 0.275,
+  },
+  {
+    model_pattern: "o4-mini",
+    input_per_mtok: 1.1,
+    output_per_mtok: 4.4,
+    cache_create_per_mtok: null,
+    cache_read_per_mtok: 0.275,
+  },
+  {
+    model_pattern: "gpt-4o",
+    input_per_mtok: 2.5,
+    output_per_mtok: 10.0,
+    cache_create_per_mtok: null,
+    cache_read_per_mtok: 1.25,
+  },
+  {
+    model_pattern: "gpt-4.1-mini",
+    input_per_mtok: 0.4,
+    output_per_mtok: 1.6,
+    cache_create_per_mtok: null,
+    cache_read_per_mtok: 0.1,
+  },
+  {
+    model_pattern: "gpt-4.1",
+    input_per_mtok: 2.0,
+    output_per_mtok: 8.0,
+    cache_create_per_mtok: null,
+    cache_read_per_mtok: 0.5,
+  },
+  // Google models (used by Gemini CLI)
+  {
+    model_pattern: "gemini-2.5-pro",
+    input_per_mtok: 1.25,
+    output_per_mtok: 10.0,
+    cache_create_per_mtok: null,
+    cache_read_per_mtok: 0.315,
+  },
+  {
+    model_pattern: "gemini-2.5-flash",
+    input_per_mtok: 0.15,
+    output_per_mtok: 0.6,
+    cache_create_per_mtok: null,
+    cache_read_per_mtok: 0.0375,
+  },
 ];
 
 export function seedPricing(db: Database.Database): void {

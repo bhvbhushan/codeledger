@@ -25,8 +25,8 @@ describe("migration rollback safety", () => {
     const db = createConnection(TEST_DB);
     runMigrations(db, TEST_DB);
 
-    // Reset to version 3 so migration v4 re-runs
-    db.prepare("DELETE FROM schema_version WHERE version = 4").run();
+    // Reset to version 3 so migrations v4+ re-run
+    db.prepare("DELETE FROM schema_version WHERE version >= 4").run();
     // Rename sessions table so ALTER TABLE sessions fails
     db.exec("ALTER TABLE sessions RENAME TO sessions_broken");
 
@@ -49,7 +49,7 @@ describe("migration rollback safety", () => {
     const version = db
       .prepare("SELECT MAX(version) as v FROM schema_version")
       .get() as { v: number };
-    expect(version.v).toBe(4);
+    expect(version.v).toBe(6);
     db.close();
   });
 
@@ -63,7 +63,7 @@ describe("migration rollback safety", () => {
     const version = db
       .prepare("SELECT MAX(version) as v FROM schema_version")
       .get() as { v: number };
-    expect(version.v).toBe(4);
+    expect(version.v).toBe(6);
 
     // Verify the columns exist
     const agentCols = db.pragma("table_info(agents)") as Array<{

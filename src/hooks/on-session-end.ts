@@ -1,6 +1,7 @@
 import { initHookDb } from "./init-db.js";
 import { parseSessionFile } from "../parser/session-parser.js";
 import { dirname, basename } from "path";
+import { checkBudgetAlerts } from "./budget-alert.js";
 
 interface SessionEndPayload {
   session_id: string;
@@ -30,6 +31,12 @@ export async function handleSessionEnd(
       payload.reason,
       result.sessionId
     );
+
+    try {
+      checkBudgetAlerts(db);
+    } catch {
+      // Fire-and-forget — never block session processing
+    }
   } finally {
     db.close();
   }

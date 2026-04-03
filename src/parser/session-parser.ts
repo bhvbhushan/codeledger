@@ -169,15 +169,7 @@ export async function parseSessionFile(
     // Upsert daily summary
     const date = startedAt.split("T")[0];
     if (primaryModel) {
-      upsertDailySummary(
-        db,
-        date,
-        projectId,
-        primaryModel,
-        totalInput,
-        totalOutput,
-        totalCost
-      );
+      upsertDailySummary(db, date, projectId, primaryModel);
     }
 
     // Recompute project totals from sessions

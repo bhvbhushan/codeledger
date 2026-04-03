@@ -2,6 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type Database from "better-sqlite3";
 import { z } from "zod";
 import { periodToStart } from "../utils/period.js";
+import { calendarPeriodStart, daysInPeriod } from "../utils/period.js";
 import { lookupPricing } from "../db/pricing.js";
 import { fmtTokens } from "../utils/format.js";
 
@@ -27,7 +28,7 @@ export function queryUsageSummary(
 ): UsageSummary {
   const start = periodToStart(period);
 
-  let sessionFilter = "WHERE s.started_at >= ?";
+  let sessionFilter = "WHERE s.started_at >= ? AND s.tool = 'claude-code'";
   const params: (string | number)[] = [start];
 
   if (project) {
@@ -83,7 +84,7 @@ export function queryUsageSummary(
     )
     .all(...params) as { model: string | null; cost: number }[];
 
-  let agentFilter = "WHERE a.started_at >= ?";
+  let agentFilter = "WHERE a.started_at >= ? AND s.tool = 'claude-code'";
   const agentParams: (string | number)[] = [start];
   if (project) {
     agentFilter += " AND p.display_name = ?";
@@ -116,7 +117,7 @@ export function queryUsageSummary(
   let projectedMonthly: number | null = null;
 
   if (sessionCount > 0) {
-    let earliestFilter = "WHERE s.started_at >= ?";
+    let earliestFilter = "WHERE s.started_at >= ? AND s.tool = 'claude-code'";
     const earliestParams: (string | number)[] = [start];
     if (project) {
       earliestFilter += " AND p.display_name = ?";
@@ -148,7 +149,7 @@ export function queryUsageSummary(
   }
 
   // Costliest session
-  let costliestFilter = "WHERE s.started_at >= ?";
+  let costliestFilter = "WHERE s.started_at >= ? AND s.tool = 'claude-code'";
   const costliestParams: (string | number)[] = [start];
   if (project) {
     costliestFilter += " AND p.display_name = ?";
@@ -187,6 +188,35 @@ export function queryUsageSummary(
     projectedMonthly,
     costliestSession,
   };
+}
+
+export function queryMonthlyBudgetLine(db: Database.Database): string | null {
+  const budget = db
+    .prepare(
+      "SELECT limit_usd FROM budgets WHERE scope = 'total' AND period = 'monthly' LIMIT 1"
+    )
+    .get() as { limit_usd: number } | undefined;
+
+  if (!budget) return null;
+
+  const monthStart = calendarPeriodStart("monthly");
+  const row = db
+    .prepare(
+      "SELECT COALESCE(SUM(total_cost_usd), 0) as cost FROM sessions WHERE started_at >= ? AND tool = 'claude-code'"
+    )
+    .get(monthStart) as { cost: number };
+
+  const spent = row.cost;
+  const pct = Math.round((spent / budget.limit_usd) * 100);
+  const totalDays = daysInPeriod("monthly");
+  const daysElapsed = Math.max(
+    (Date.now() - new Date(monthStart).getTime()) / (1000 * 60 * 60 * 24),
+    0.01
+  );
+  const projected = (spent / daysElapsed) * totalDays;
+
+  const overshoot = projected > budget.limit_usd ? " overshoot" : "";
+  return `**Monthly Budget:** $${spent.toFixed(0)}/$${budget.limit_usd.toFixed(0)} (${pct}%) — projected $${projected.toFixed(0)}${overshoot}`;
 }
 
 export function registerUsageSummary(
@@ -252,6 +282,11 @@ export function registerUsageSummary(
         lines.push(
           `**Spend Velocity:** $${s.velocityPerDay.toFixed(2)}/day | Projected monthly: $${s.projectedMonthly!.toFixed(2)}`
         );
+      }
+
+      const budgetLine = queryMonthlyBudgetLine(db);
+      if (budgetLine) {
+        lines.push(budgetLine);
       }
 
       if (s.costliestSession) {

@@ -49,7 +49,7 @@ describe("pricing", () => {
   });
 
   it("returns null for unknown model", () => {
-    const pricing = lookupPricing(db, "gpt-4o-unknown");
+    const pricing = lookupPricing(db, "totally-unknown-model-xyz");
     expect(pricing).toBeNull();
   });
 

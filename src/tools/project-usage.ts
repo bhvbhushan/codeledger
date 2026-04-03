@@ -34,7 +34,7 @@ export function queryProjectUsage(
       MAX(s.started_at) as last_active
     FROM sessions s
     JOIN projects p ON s.project_id = p.id
-    WHERE s.started_at >= ?
+    WHERE s.started_at >= ? AND s.tool = 'claude-code'
     GROUP BY p.id
     ORDER BY ${orderCol} DESC
     LIMIT ?

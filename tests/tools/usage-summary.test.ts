@@ -3,7 +3,7 @@ import { existsSync, unlinkSync } from "fs";
 import { createConnection } from "../../src/db/connection.js";
 import { runMigrations } from "../../src/db/migrate.js";
 import { seedPricing } from "../../src/db/pricing.js";
-import { queryUsageSummary } from "../../src/tools/usage-summary.js";
+import { queryUsageSummary, queryMonthlyBudgetLine } from "../../src/tools/usage-summary.js";
 
 const TEST_DB = "/tmp/codeledger-usage-test.db";
 let db: any;
@@ -132,5 +132,22 @@ describe("usage_summary tool", () => {
     db.prepare("DELETE FROM sessions").run();
     const result = queryUsageSummary(db, "today");
     expect(result.costliestSession).toBeNull();
+  });
+
+  it("shows monthly budget one-liner when budget exists", () => {
+    const now = new Date().toISOString();
+    db.prepare(
+      "INSERT INTO budgets (scope, scope_id, period, limit_usd, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)"
+    ).run("total", null, "monthly", 200, now, now);
+
+    const line = queryMonthlyBudgetLine(db);
+    expect(line).not.toBeNull();
+    expect(line).toContain("Monthly Budget:");
+    expect(line).toContain("/$200");
+  });
+
+  it("returns null budget line when no budget exists", () => {
+    const line = queryMonthlyBudgetLine(db);
+    expect(line).toBeNull();
   });
 });

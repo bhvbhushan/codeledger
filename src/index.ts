@@ -6,7 +6,7 @@ const pkg = require("../package.json");
 import { createConnection, getDefaultDbPath } from "./db/connection.js";
 import { runMigrations } from "./db/migrate.js";
 import { seedPricing } from "./db/pricing.js";
-import { scanForNewSessions } from "./sync/scanner.js";
+import { scanForNewSessions, scanCollectors } from "./sync/scanner.js";
 import { classifyAllSessions } from "./classifier/categorize-session.js";
 import { registerUsageSummary } from "./tools/usage-summary.js";
 import { registerProjectUsage } from "./tools/project-usage.js";
@@ -14,6 +14,9 @@ import { registerModelStats } from "./tools/model-stats.js";
 import { registerAgentUsage } from "./tools/agent-usage.js";
 import { registerSkillUsage } from "./tools/skill-usage.js";
 import { registerCostOptimize } from "./tools/cost-optimize.js";
+import { registerBudgetStatus } from "./tools/budget-status.js";
+import { registerBudgetSet } from "./tools/budget-set.js";
+import { registerCrossToolCost } from "./tools/cross-tool-cost.js";
 
 const SCAN_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -31,11 +34,13 @@ async function main() {
 
   // Initial scan
   await scanForNewSessions(db, claudeDir);
+  await scanCollectors(db);
 
   // Periodic scan
   setInterval(async () => {
     try {
       await scanForNewSessions(db, claudeDir);
+      await scanCollectors(db);
     } catch (err) {
       process.stderr.write(`[codeledger] Scanner error: ${err}\n`);
     }
@@ -58,6 +63,13 @@ async function main() {
 
   // Register Phase C tools
   registerCostOptimize(server, db);
+
+  // Register Phase E tools
+  registerBudgetStatus(server, db);
+  registerBudgetSet(server, db);
+
+  // Register Phase E.2 tools
+  registerCrossToolCost(server, db);
 
   // Connect via stdio
   const transport = new StdioServerTransport();
